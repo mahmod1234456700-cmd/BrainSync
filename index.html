@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>برين سينك (BrainSync) للذكاء الاصطناعي - الإصدار الهادئ</title>
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+    <div class="container fade-in-up">
+        
+        <h1 class="glow-text" id="secret-trigger" title="اضغط مرتين لفتح اللوحة الخاصة">
+            <i class="fas fa-brain"></i> برين سينك (BrainSync)
+        </h1>
+
+        <div class="form-group search-container">
+            <label>
+                <i class="fas fa-search"></i> ابحث عن المادة:
+            </label>
+            
+            <div class="search-box">
+                <input type="text" id="stage-search" placeholder="اكتب اسم المادة (مثال: اللغة العربية، الفيزياء)...">
+                <i class="fas fa-magic magic-icon"></i>
+            </div>
+            
+            <ul id="search-results" class="search-results-list"></ul>
+            
+            <div id="search-filter-container" class="hidden-section" style="background: #f8fafc; padding: 20px; border-radius: 10px; margin-top: 15px; border: 2px solid var(--primary-light);">
+                
+                <h4 style="margin-top: 0; color: var(--primary-dark); font-size: 1rem;" id="filter-title">جاري تحديد مسار المادة...</h4>
+                
+                <div id="filter-stage-step" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;"></div>
+                
+                <div id="filter-type-step" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;"></div>
+                
+                <div id="filter-grade-step" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                
+            </div>
+        </div>
+
+        <div id="main-ads-section" class="ads-container">
+            <span class="ads-label">إعلان ممول</span>
+            <div class="ad-content">
+                <p style="color: #94a3b8; font-size: 0.9rem; margin: 0;">مساحة إعلانية مخصصة</p>
+            </div>
+        </div>
+
+        <div id="ai-chat-section" class="chat-3d-container">
+            
+            <div class="robot-avatar-3d" id="robot-icon">
+                <img src="113843.jpg" alt="AI Robot" class="high-res-robot-img">
+            </div>
+            
+            <div id="chat-messages-box" style="height: 250px; background: #f8fafc; border-radius: 10px; padding: 15px; overflow-y: auto; margin-bottom: 15px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px;">
+                
+                <div class="bot-msg-3d" style="background: #e0f2fe; color: #0369a1; padding: 10px 15px; border-radius: 15px 15px 0 15px; align-self: flex-start; max-width: 80%; font-size: 0.95rem;">
+                    مرحباً يا بطل! أنا الروبوت التعليمي الخاص بك. اسألني عن أي قانون، أو مسألة، أو قاعدة نحوية وسأشرحها لك فوراً. 🤖
+                </div>
+
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="chat-input-field" placeholder="اكتب سؤالك هنا..." style="flex: 1; margin: 0;">
+                <button id="chat-mic-btn" class="btn" style="background: var(--success-color); color: white; border: none; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: bold;">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button id="chat-send-btn" class="btn" style="background: var(--primary-color); color: white; border: none; padding: 0 20px; border-radius: 10px; cursor: pointer; font-weight: bold;">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="divider">أو اختر من القوائم يدوياً</div>
+
+        <div class="stages-grid">
+            
+            <div class="form-group">
+                <select id="main-stage">
+                    <option value="none">-- اختر المرحلة الدراسية --</option>
+                    <option value="primary">المرحلة الابتدائية (عام وأزهري)</option>
+                    <option value="prep">المرحلة الإعدادية (عام وأزهري)</option>
+                    <option value="high_general">الثانوية العامة</option>
+                    <option value="high_azhar">الثانوية الأزهرية</option>
+                    <option value="diploma">الدبلومات الفنية</option>
+                </select>
+            </div>
+
+            <div class="form-group hidden-section" id="sub-stage-container">
+                <select id="sub-stage"></select>
+            </div>
+
+            <div class="form-group hidden-section" id="year-stage-container">
+                <select id="year-stage"></select>
+            </div>
+
+            <div class="form-group hidden-section" id="subject-container">
+                <label>
+                    <i class="fas fa-book"></i> المادة العلمية:
+                </label>
+                <select id="subject-select"></select>
+                
+                <div id="selected-path-display"></div>
+            </div>
+            
+        </div>
+
+        <div id="student-upload-section" class="form-group hidden-section">
+            <hr class="section-divider">
+            <label>
+                <i class="fas fa-camera"></i> تصوير أو رفع الدرس للتلخيص:
+            </label>
+            
+            <div style="border: 2px dashed var(--primary-color); padding: 25px; text-align: center; border-radius: 10px; background: #f8fafc; cursor: pointer; transition: 0.3s;" id="lesson-upload-box" onmouseover="this.style.backgroundColor='#eff6ff'" onmouseout="this.style.backgroundColor='#f8fafc'">
+                <i class="fas fa-camera-retro" style="font-size: 2.5rem; color: var(--primary-color); margin-bottom: 15px;"></i>
+                <p style="margin: 0; color: #475569; font-weight: bold; font-size: 1.1rem;" id="lesson-upload-text">
+                    اضغط هنا لتصوير صفحة الكتاب أو رفع الدرس
+                </p>
+                <input type="file" id="lesson-image" accept="image/*" style="display: none;">
+            </div>
+
+            <div id="image-preview-container" class="hidden-section" style="margin-top: 15px; text-align: center;">
+                <img id="image-preview" style="max-width: 100%; height: auto; border-radius: 10px; border: 2px solid var(--primary-color);">
+            </div>
+        </div>
+
+        <div id="extraction-settings" class="hidden-section">
+            <hr class="section-divider">
+            <label>
+                <i class="fas fa-cogs"></i> نوع المخرج المطلوب:
+            </label>
+            <div class="form-group">
+                <select id="study-material-format">
+                    <option value="pdf-qa">📄 استخراج كملف PDF (سؤال وجواب مع شرح مفصل للإجابة)</option>
+                    <option value="exam-focus">🎯 أسئلة مضمونة للامتحانات (مراجعة نهائية)</option>
+                    <option value="summary">📝 تلخيص شامل للمنهج بأسلوب مبسط</option>
+                </select>
+            </div>
+        </div>
+
+        <hr class="section-divider">
+        <div class="teacher-section">
+            <label>
+                <i class="fas fa-chalkboard-teacher"></i> قسم الترقية وحسابات الـ VIP (للطلاب والمعلمين):
+            </label>
+            
+            <div class="form-group hidden-section" id="teacher-name-group">
+                <input type="text" id="teacher-full-name" placeholder="أدخل اسمك الرباعي هنا للتحقق" style="margin-bottom: 15px;">
+                <button class="btn subscribe-btn" id="verify-teacher-btn" style="background-color: var(--primary-color);">تحقق من الحساب</button>
+            </div>
+
+            <div class="audio-toggle teacher-toggle">
+                <input type="checkbox" id="teacher-mode">
+                <label for="teacher-mode">تسجيل الدخول / تفعيل عضوية VIP</label>
+            </div>
+            
+            <div id="subscription-box" class="subscription-box hidden-section">
+                <div class="vip-badge"><i class="fas fa-crown"></i> PRO</div>
+                <p>بصفتك طالباً VIP أو معلماً، يمكنك التحدث الصوتي مع الروبوت وإنشاء بنوك أسئلة متقدمة.</p>
+                <h4 id="price-display" style="color: var(--primary-dark); margin: 10px 0;">جاري حساب قيمة الاشتراك...</h4>
+                <p style="font-size: 0.85rem; color: #64748b;">قم بتحويل المبلغ لرقم فودافون كاش 01067479440 وارفع صورة الإيصال للتفعيل الفوري.</p>
+                <input type="file" id="receipt-upload" accept="image/*" style="display: none;">
+                <button class="btn subscribe-btn" id="upload-trigger-btn">
+                    <i class="fas fa-upload"></i> رفع الإيصال وتفعيل الاشتراك
+                </button>
+
+                <hr style="border-top: 1px solid #fde68a; margin: 15px 0;">
+                <h4 style="color: var(--primary-dark); margin: 10px 0;">أدوات المعلم الذكية</h4>
+                <button class="btn action-btn" id="teacher-record-btn" style="background-color: #8b5cf6; margin-top: 10px;">
+                    <i class="fas fa-microphone-alt"></i> تسجيل المعلم
+                </button>
+                <p style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">سيتم دمج أسلوبك مع أساليب التعليم العالمية، وسيحذف تلقائياً بعد 6 أشهر.</p>
+            </div>
+        </div>
+
+        <div class="app-download-section">
+            <h3><i class="fas fa-mobile-alt"></i> تحميل تطبيق المنصة</h3>
+            <p>يمكنك الآن تحميل التطبيق الخاص بنا للحصول على تجربة أسرع وأكثر استقراراً.</p>
+            <div class="download-buttons">
+                <a href="BrainSync.exe" download="BrainSync.exe" class="btn download-btn pc-btn" style="text-decoration: none;"><i class="fab fa-windows"></i> نسخة الكمبيوتر</a>
+                <a href="BrainSync.apk" download="BrainSync.apk" class="btn download-btn android-btn" style="text-decoration: none;"><i class="fab fa-android"></i> نسخة الأندرويد</a>
+            </div>
+        </div>
+
+        <button class="btn action-btn" id="process-btn">
+            <span id="btn-text">🚀 بدء إنشاء المحتوى</span>
+        </button>
+
+        <div id="ai-output-container">
+            <h3><i class="fas fa-sparkles"></i> المخرجات الجاهزة</h3>
+            <div class="ai-badge" id="ai-meta-info"></div>
+            <div id="ai-response-text"></div>
+        </div>
+
+    </div>
+
+    <div id="pdf-template" style="display: none;">
+        <div style="padding: 40px; font-family: 'Segoe UI', Arial, sans-serif; direction: rtl; text-align: right; background: white; color: black;">
+            <div style="text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="color: #2563eb; margin: 0;">برين سينك (BrainSync) 🧠</h1>
+                <h3 id="pdf-header-title" style="color: #64748b; margin-top: 10px;">ملف تجريبي</h3>
+            </div>
+            <div id="pdf-qa-content"></div>
+            <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+                تم التوليد بواسطة برين سينك (BrainSync) للذكاء الاصطناعي © 2026
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-modal" class="admin-modal-bg">
+        <div class="admin-modal-content">
+            <h3><i class="fas fa-crown"></i> تفعيل VIP خاص</h3>
+            <input type="password" id="admin-pass" placeholder="كلمة المرور الموحدة">
+            <input type="email" id="admin-email" placeholder="البريد الإلكتروني المعتمد">
+            <button id="admin-login-btn" class="btn action-btn" style="background-color: var(--success-color); margin-top: 10px;">تفعيل الحساب فوراً</button>
+            <button id="admin-close-btn" class="btn" style="background-color: #ef4444; color: white; border: none; padding: 12px; border-radius: 10px; width: 100%; margin-top: 10px; cursor: pointer; font-weight: bold;">إلغاء</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <script src="java.js"></script>
+
+</body>
+</html>
