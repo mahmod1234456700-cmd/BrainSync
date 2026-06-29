@@ -9,14 +9,16 @@
 // ============================================================================
 
 // تم دمج إعدادات Firebase الخاصة بك بناءً على طلبك
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-    apiKey: "AIzaSyAUXHdUHX9P5QUNCYqTZ9bo-j2grvakNAM",
-    authDomain: "brainsync-c0192.firebaseapp.com",
-    projectId: "brainsync-c0192",
-    storageBucket: "brainsync-c0192.firebasestorage.app",
-    messagingSenderId: "531045450738",
-    appId: "1:531045450738:web:896f51918f2c15b11e216b",
-    measurementId: "G-QRMZ4L275M"
+  apiKey: "AIzaSyAEQVZGXAhPCLpgFZhKkFfi5TOxP7BFGvU",
+  authDomain: "brainsync-fd83f.firebaseapp.com",
+  databaseURL: "https://brainsync-fd83f-default-rtdb.firebaseio.com",
+  projectId: "brainsync-fd83f",
+  storageBucket: "brainsync-fd83f.firebasestorage.app",
+  messagingSenderId: "297207509009",
+  appId: "1:297207509009:web:4d01cd48da789b60b301b0",
+  measurementId: "G-LM6D9W3L0Y"
 };
 
 firebase.initializeApp(
