@@ -2350,7 +2350,8 @@ document.addEventListener(
             
             processBtn.classList.remove('processing');
             
-            alert("حدث خطأ أثناء تحليل الصورة. حاول مرة أخرى بصورة أوضح.");
+            alert("الخطأ التقني الحقيقي هو: " + error.message);
+
             
         }
         
