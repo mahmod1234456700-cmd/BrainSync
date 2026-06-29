@@ -2214,7 +2214,7 @@ document.addEventListener(
                 
                 const newImageUrl = await newStorageRef.getDownloadURL();
 
-                let url = 'https://Mahmodnageb.pythonanywhere.com/api/analyze_lesson';
+                let url = 'mahmodnagep.pythonanywhere.com';
                 
                 url += '?subject=';
                 
