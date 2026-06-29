@@ -2212,7 +2212,7 @@ document.addEventListener(
                 aiSystemPrompt += yearText;
 
                 // 3. إعداد مفتاح جوجل الخاص بك 
-                const GEMINI_API_KEY = "AQ.Ab8RN6Jj2pNIAu8uTG" + "7pzp3ZraELRE-1IQ4iR5y-whIFqcb79A";
+                const GEMINI_API_KEY = "AQ.Ab8RN6L0UnYUVcYspiV4" + "cOkUuRKYcpdEfQngXh7X-o9bVZqD_Q";
 
                 let geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=';
                 
@@ -2791,7 +2791,7 @@ document.addEventListener(
             chatSystemPrompt += messageText;
 
             // 2. إعداد المفتاح والرابط
-            const GEMINI_API_KEY = "AQ.Ab8RN6Jj2pNIAu8uTG" + "7pzp3ZraELRE-1IQ4iR5y-whIFqcb79A";
+            const GEMINI_API_KEY = "AQ.Ab8RN6L0UnYUVcYspiV4" + "cOkUuRKYcpdEfQngXh7X-o9bVZqD_Q";
 
             let geminiChatUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=';
             
