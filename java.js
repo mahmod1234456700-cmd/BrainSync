@@ -2695,7 +2695,7 @@ document.addEventListener(
         try {
             
             const response = await fetch(
-                'https://Mahmodnageb.pythonanywhere.com/api/chat', 
+                'https://mahmodnageb.pythonanywhere.com/api/chat', 
                 {
                     
                     method: 'POST',
