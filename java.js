@@ -19,6 +19,7 @@ const db = firebase.firestore();
 const storage = firebase.storage();
 
 let currentTeacherId = null;
+let isVIPLoggedIn = false; // المتغير الجديد للتحكم في الصلاحيات
 let selectedLessonFiles = []; 
 let filterSelectedSubject = "";
 let filterSelectedStage = "";
@@ -29,86 +30,232 @@ let globalTeacherStyle = "";
 let isTeacherRecording = false;
 
 // ============================================================================
-// 1. نظام الشاشة المخفية للـ VIP المجاني والداش بورد (Dashboard)
+// بناء نظام تسجيل دخول "فيس بوك" ديناميكياً (بدون تعديل HTML)
 // ============================================================================
-document.getElementById('secret-trigger').addEventListener('dblclick', () => {
-    document.getElementById('admin-modal').style.display = 'flex';
-});
+function buildFacebookLogin() {
+    const tSec = document.querySelector('.teacher-section');
+    if (!tSec) return;
 
-document.getElementById('admin-close-btn').addEventListener('click', () => {
-    document.getElementById('admin-modal').style.display = 'none';
-});
+    // إضافة الستايل الخاص بالفيس بوك
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .fb-login-container { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; background-color: #f0f2f5; padding: 40px 20px; border-radius: 10px; margin: 20px 0; gap: 40px; text-align: right; direction: rtl; border: 1px solid #dddfe2;}
+        .fb-left { max-width: 400px; }
+        .fb-logo { color: #1877f2; font-size: 3.5rem; margin: 0; font-family: Helvetica, Arial, sans-serif; font-weight: bold; letter-spacing: -1.5px; }
+        .fb-subtitle { font-size: 1.4rem; color: #1c1e21; margin-top: 10px; line-height: 1.4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .fb-right { flex: 1; min-width: 300px; max-width: 400px; }
+        .fb-card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); text-align: center; }
+        .fb-input { width: 100%; padding: 14px 16px; font-size: 1.1rem; border: 1px solid #dddfe2; border-radius: 6px; margin-bottom: 15px; box-sizing: border-box; direction: rtl; background: #fff; color:#1c1e21;}
+        .fb-input:focus { border-color: #1877f2; outline: none; box-shadow: 0 0 0 2px #e7f3ff; }
+        .fb-btn-primary { width: 100%; background-color: #1877f2; color: white; border: none; border-radius: 6px; font-size: 1.3rem; font-weight: bold; padding: 12px; cursor: pointer; transition: 0.2s; font-family: inherit;}
+        .fb-btn-primary:hover { background-color: #166fe5; }
+        .fb-btn-success { width: 70%; background-color: #42b72a; color: white; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; padding: 12px; cursor: pointer; transition: 0.2s; margin-top:10px; font-family: inherit;}
+        .fb-btn-success:hover { background-color: #36a420; }
+        .fb-btn-secondary { width: auto; background-color: #e4e6eb; color: #4b4f56; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; padding: 10px 20px; cursor: pointer; font-family: inherit;}
+        .fb-divider { border-bottom: 1px solid #dadde1; margin: 20px 0; }
+        #logged-in-state { text-align: center; padding: 30px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin:20px 0; border-top: 4px solid #1877f2;}
+    `;
+    document.head.appendChild(style);
 
-document.getElementById('admin-login-btn').addEventListener('click', async () => {
-    const pass = document.getElementById('admin-pass').value;
-    const email = document.getElementById('admin-email').value.trim().toLowerCase();
-    
-    const unifiedPass = "BrainSync2026"; 
-    const allowedEmails = [
-        "admin1@brainsync.com", 
-        "admin2@brainsync.com", 
-        "admin3@brainsync.com"
-    ];
-    
-    if (pass !== unifiedPass) {
-        alert("كلمة المرور غير صحيحة!");
-        return;
-    }
-    
-    if (!allowedEmails.includes(email)) {
-        alert("هذا الحساب غير مصرح له بالدخول المجاني كأدمن!");
-        return;
-    }
-    
-    currentTeacherId = email.replace(/[@.]/g, '_'); 
-    
-    try {
-        const teacherRef = db.collection("teachers").doc(currentTeacherId);
-        
-        await teacherRef.set({
-            name: "Admin VIP",
-            email: email,
-            status: "VIP_Active",
-            role: "Admin",
-            subscriptionStart: new Date(),
-            subscriptionEnd: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000) 
-        }, { merge: true });
-        
-        document.getElementById('teacher-mode').checked = true;
-        document.getElementById('teacher-mode').dispatchEvent(new Event('change'));
-        
-        // --- التعديل الجذري: إخفاء صندوق الدفع نهائياً للأدمن وبناء الداش بورد ---
-        document.getElementById('subscription-box').style.display = "none";
-        document.getElementById('verify-teacher-btn').innerText = "تم تسجيل الدخول كمسؤول VIP";
-        document.getElementById('verify-teacher-btn').style.backgroundColor = "var(--success-color)";
-        document.getElementById('teacher-full-name').style.display = "none";
-        document.getElementById('admin-modal').style.display = 'none';
-        
-        alert("مرحباً بك يا مدير! تم فتح المنصة بالكامل بدون أي مصاريف.");
-        
-        buildAdminDashboardBtn();
-        
-    } catch (error) {
-        alert("خطأ من قاعدة بيانات الفايربيز: \n" + error.message);
-    }
-});
+    // إزالة المحتوى القديم ووضع كروت الفيس بوك
+    tSec.innerHTML = `
+        <div class="fb-login-container" id="fb-main-container">
+            <div class="fb-left">
+                <h1 class="fb-logo">BrainSync</h1>
+                <p class="fb-subtitle">سجل دخولك الآن للتواصل مع أذكى منصة تعليمية للتلخيص وإنشاء الامتحانات في مصر.</p>
+            </div>
+            <div class="fb-right">
+                
+                <!-- كارت تسجيل دخول الطالب/المعلم -->
+                <div class="fb-card" id="fb-user-card">
+                    <input type="tel" id="fb-phone-input" class="fb-input" placeholder="رقم الموبايل (لتسجيل الدخول كطالب/معلم)">
+                    <button class="fb-btn-primary" id="fb-login-btn">تسجيل الدخول</button>
+                    <div class="fb-divider"></div>
+                    <button class="fb-btn-success" id="fb-show-admin">تسجيل دخول كمسؤول</button>
+                </div>
 
-// دالة بناء زر الداش بورد للأدمن فقط
-function buildAdminDashboardBtn() {
-    if (document.getElementById('open-dash-btn')) return;
-    
-    let btn = document.createElement('button');
-    btn.id = "open-dash-btn";
-    btn.className = "btn action-btn";
-    btn.style.backgroundColor = "#1e293b";
-    btn.style.marginTop = "15px";
-    btn.innerHTML = '<i class="fas fa-users-cog"></i> لوحة تحكم أرقام الـ VIP (Dashboard)';
-    btn.onclick = loadAndShowDashboard;
-    
-    document.querySelector('.teacher-section').appendChild(btn);
+                <!-- كارت تسجيل دخول الإدارة -->
+                <div class="fb-card" id="fb-admin-card" style="display:none;">
+                    <h3 style="margin-top:0; color:#1877f2;">دخول الإدارة (VIP)</h3>
+                    <input type="email" id="fb-admin-email" class="fb-input" placeholder="البريد الإلكتروني المعتمد">
+                    <input type="password" id="fb-admin-pass" class="fb-input" placeholder="كلمة المرور الموحدة">
+                    <input type="tel" id="fb-admin-phone" class="fb-input" placeholder="رقم موبايلك (لربط حسابك بالمنصة)">
+                    <button class="fb-btn-primary" id="fb-admin-btn" style="background-color:#42b72a;">دخول</button>
+                    <div class="fb-divider"></div>
+                    <button class="fb-btn-secondary" id="fb-show-user">رجوع لصفحة الطلاب</button>
+                </div>
+
+                <!-- كارت الدفع والإيصال -->
+                <div class="fb-card" id="fb-payment-card" style="display:none;">
+                    <div style="text-align:center; margin-bottom:10px; color:#b45309; font-weight:bold;"><i class="fas fa-crown"></i> تفعيل الحساب (VIP)</div>
+                    <h3 id="fb-price-text" style="color:#1c1e21; margin:10px 0;"></h3>
+                    <p style="font-size:0.95rem; color:#606770; line-height:1.5;">عذراً، حسابك غير مفعل. برجاء تحويل المبلغ عبر فودافون كاش لرقم <strong>01067479440</strong> ورفع صورة الإيصال ليتم تفعيله فوراً.</p>
+                    <input type="file" id="fb-receipt-file" accept="image/*" style="display: none;">
+                    <button class="fb-btn-primary" id="fb-trigger-upload-btn" style="margin-top:10px;"><i class="fas fa-camera"></i> إرفاق إيصال الدفع</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- حالة ما بعد تسجيل الدخول بنجاح -->
+        <div id="logged-in-state" style="display:none;">
+            <h2 style="color:#1877f2; margin-top:0;"><i class="fas fa-check-circle"></i> تم تسجيل الدخول بنجاح!</h2>
+            <p style="font-size:1.2rem; color:#1c1e21;">أهلاً بك، حسابك مفعل (VIP) على الرقم: <span id="logged-in-phone" style="font-weight:bold; color:#059669;" dir="ltr"></span></p>
+            
+            <div id="admin-tools" style="display:none; margin-top:20px; padding-top:20px; border-top:1px solid #dddfe2;">
+                <button class="fb-btn-primary" id="open-dash-btn-fb" style="background:#1e293b; width:100%; max-width:400px;"><i class="fas fa-users-cog"></i> لوحة تحكم الاشتراكات والأرقام (Dashboard)</button>
+            </div>
+            
+            <div style="margin-top:20px;">
+                <button class="fb-btn-primary" id="fb-teacher-record-btn" style="background:#8b5cf6; width:100%; max-width:400px;"><i class="fas fa-microphone-alt"></i> أداة تسجيل أسلوب المعلم</button>
+            </div>
+        </div>
+    `;
+
+    // -----------------------------------------------------
+    // برمجة أزرار التبديل والتسجيل
+    // -----------------------------------------------------
+    document.getElementById('fb-show-admin').onclick = () => {
+        document.getElementById('fb-user-card').style.display = 'none';
+        document.getElementById('fb-admin-card').style.display = 'block';
+    };
+    document.getElementById('fb-show-user').onclick = () => {
+        document.getElementById('fb-admin-card').style.display = 'none';
+        document.getElementById('fb-user-card').style.display = 'block';
+    };
+
+    // تسجيل الطالب / المعلم برقم الموبايل فقط
+    document.getElementById('fb-login-btn').onclick = async () => {
+        const phone = document.getElementById('fb-phone-input').value.trim();
+        if(phone.length < 10) { alert("برجاء إدخال رقم موبايل صحيح."); return; }
+        
+        const btn = document.getElementById('fb-login-btn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحقق...';
+        
+        currentTeacherId = phone;
+        const currentIP = await fetchDeviceIP();
+        let deviceFingerprint = localStorage.getItem("device_fingerprint") || ("DEV_" + Math.random().toString(36).substring(2, 15));
+        localStorage.setItem("device_fingerprint", deviceFingerprint);
+
+        try {
+            const teacherRef = db.collection("teachers").doc(currentTeacherId);
+            const doc = await teacherRef.get();
+            let teacherData = {};
+
+            if (doc.exists) {
+                teacherData = doc.data();
+                if (teacherData.status === "VIP_Active") {
+                    activateLoggedInState(phone, teacherData.role === "Admin");
+                    return;
+                }
+            } else {
+                teacherData = { name: "User_" + phone, phone: phone, registeredDeviceFingerprint: deviceFingerprint, monthsSubscribed: 0, status: "Free" };
+                await teacherRef.set(teacherData);
+            }
+
+            await teacherRef.update({ lastKnownIP: currentIP });
+            
+            // إظهار كارت الدفع
+            const reqAmount = 50 + ((teacherData.monthsSubscribed || 0) * 50);
+            document.getElementById('fb-price-text').innerText = 'مطلوب ' + reqAmount + ' جنيه مصري';
+            document.getElementById('fb-user-card').style.display = 'none';
+            document.getElementById('fb-payment-card').style.display = 'block';
+            
+        } catch (err) {
+            alert("خطأ قاعدة البيانات: " + err.message);
+            btn.innerHTML = 'تسجيل الدخول';
+        }
+    };
+
+    // تسجيل الإدارة بالبريد الافتراضي ورقم الموبايل
+    document.getElementById('fb-admin-btn').onclick = async () => {
+        const email = document.getElementById('fb-admin-email').value.trim().toLowerCase();
+        const pass = document.getElementById('fb-admin-pass').value;
+        const phone = document.getElementById('fb-admin-phone').value.trim();
+        
+        if(pass !== "BrainSync2026") { alert("كلمة المرور غير صحيحة!"); return; }
+        if(!["admin1@brainsync.com", "admin2@brainsync.com", "admin3@brainsync.com"].includes(email)) { alert("هذا البريد غير مصرح له كإدارة!"); return; }
+        if(phone.length < 10) { alert("أدخل رقم الموبايل لربط حسابك بالمنصة لتفعيله."); return; }
+
+        const btn = document.getElementById('fb-admin-btn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التفعيل...';
+
+        currentTeacherId = phone;
+        try {
+            const teacherRef = db.collection("teachers").doc(currentTeacherId);
+            await teacherRef.set({
+                name: "Admin VIP", email: email, phone: phone, status: "VIP_Active", role: "Admin",
+                subscriptionStart: new Date(), subscriptionEnd: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000) 
+            }, { merge: true });
+            
+            activateLoggedInState(phone, true);
+        } catch(err) {
+            alert("خطأ قاعدة البيانات: " + err.message);
+            btn.innerHTML = 'دخول';
+        }
+    };
+
+    // رفع الإيصال للتفعيل
+    document.getElementById('fb-trigger-upload-btn').onclick = () => document.getElementById('fb-receipt-file').click();
+    document.getElementById('fb-receipt-file').onchange = async (e) => {
+        const file = e.target.files[0];
+        if(!file || !currentTeacherId) return;
+
+        const btn = document.getElementById('fb-trigger-upload-btn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري رفع الإيصال...';
+        btn.style.pointerEvents = "none";
+
+        try {
+            const storageRef = storage.ref('receipts/' + currentTeacherId + '_' + Date.now() + '_' + file.name);
+            const snapshot = await storageRef.put(file);
+            const url = await snapshot.ref.getDownloadURL();
+
+            const teacherRef = db.collection("teachers").doc(currentTeacherId);
+            const doc = await teacherRef.get();
+            const currentMonths = doc.data().monthsSubscribed || 0;
+
+            await teacherRef.update({
+                status: "VIP_Active", subscriptionStart: new Date(), 
+                subscriptionEnd: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)),
+                lastPaymentReceipt: url, monthsSubscribed: currentMonths + 1 
+            });
+
+            alert("تم التفعيل كـ VIP بنجاح!");
+            activateLoggedInState(currentTeacherId, false);
+        } catch(err) {
+            alert("حدث خطأ أثناء الرفع: " + err.message);
+            btn.innerHTML = '<i class="fas fa-camera"></i> إرفاق إيصال الدفع';
+            btn.style.pointerEvents = "auto";
+        }
+    };
+
+    // ربط المايك وأدوات الإدارة
+    document.getElementById('fb-teacher-record-btn').onclick = startTeacherRecording;
+    document.getElementById('open-dash-btn-fb').onclick = loadAndShowDashboard;
 }
 
-// دالة جلب وعرض الأرقام التي اشتركت في المنصة (Dashboard)
+// التوجيه وتفعيل الواجهة بعد الدخول
+function activateLoggedInState(phone, isAdmin) {
+    isVIPLoggedIn = true;
+    document.getElementById('fb-main-container').style.display = 'none';
+    document.getElementById('logged-in-state').style.display = 'block';
+    document.getElementById('logged-in-phone').innerText = phone;
+    if(isAdmin) {
+        document.getElementById('admin-tools').style.display = 'block';
+    }
+}
+
+// دالة توجيه المستخدم لصفحة الفيس بوك (التسجيل) إجبارياً لو خلص محاولاته
+function forceScrollToLogin() {
+    const loginSection = document.getElementById('fb-main-container');
+    if (loginSection) {
+        loginSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => { document.getElementById('fb-phone-input').focus(); }, 500);
+    }
+}
+
+// ============================================================================
+// نظام جلب وعرض الداش بورد للأدمن
+// ============================================================================
 async function loadAndShowDashboard() {
     let container = document.createElement('div');
     container.style.position = "fixed";
@@ -145,7 +292,8 @@ async function loadAndShowDashboard() {
         let html = `
             <table style="width:100%; border-collapse: collapse; text-align:right;" border="1">
                 <tr style="background-color:#f1f5f9; color:#334155;">
-                    <th style="padding:10px;">الرقم / المُعرّف</th>
+                    <th style="padding:10px;">رقم الموبايل</th>
+                    <th style="padding:10px;">النوع</th>
                     <th style="padding:10px;">حالة الحساب</th>
                     <th style="padding:10px;">تاريخ التفعيل</th>
                 </tr>
@@ -156,18 +304,20 @@ async function loadAndShowDashboard() {
             count++;
             let data = doc.data();
             let statusColor = data.status === "VIP_Active" ? "#059669" : "#ef4444";
+            let role = data.role === "Admin" ? "أدمن إدارة" : "طالب/مدرس";
             let subDate = data.subscriptionStart ? new Date(data.subscriptionStart.seconds * 1000 || data.subscriptionStart).toLocaleDateString('ar-EG') : "لم يشترك بعد";
             
             html += `
                 <tr>
-                    <td style="padding:10px; font-weight:bold;">${doc.id}</td>
+                    <td style="padding:10px; font-weight:bold;" dir="ltr">${doc.id}</td>
+                    <td style="padding:10px;">${role}</td>
                     <td style="padding:10px; color:${statusColor}; font-weight:bold;">${data.status}</td>
                     <td style="padding:10px;">${subDate}</td>
                 </tr>
             `;
         });
         
-        html += `</table><p style="margin-top:15px; color:#64748b;">إجمالي الحسابات المسجلة: ${count}</p>`;
+        html += `</table><p style="margin-top:15px; color:#64748b; font-weight:bold;">إجمالي الأرقام المسجلة في المنصة: ${count}</p>`;
         document.getElementById('dash-content').innerHTML = html;
         
     } catch (e) {
@@ -175,22 +325,22 @@ async function loadAndShowDashboard() {
     }
 }
 
-function setRobotState(state) {
-    const robotIcon = document.getElementById('robot-icon');
-    if (!robotIcon) return;
-    robotIcon.classList.remove('robot-listening', 'robot-thinking', 'robot-speaking');
-    if (state === 'listening') robotIcon.classList.add('robot-listening');
-    else if (state === 'thinking') robotIcon.classList.add('robot-thinking');
-    else if (state === 'speaking') robotIcon.classList.add('robot-speaking');
+// دالة المساعدة في كشف الـ IP
+async function fetchDeviceIP() {
+    try { 
+        const res = await fetch('https://api.ipify.org?format=json'); 
+        const data = await res.json(); return data.ip; 
+    } catch (error) { return "IP_UNKNOWN"; }
 }
 
 // ============================================================================
-// نظام عداد المحاولات المجانية
+// نظام العدادات والقيود المجانية
 // ============================================================================
 function checkAttempts() {
     let attempts = parseInt(localStorage.getItem('user_attempts') || 0);
     if (attempts >= 3) {
-        alert("عفواً، لقد انتهت محاولاتك المجانية (3/3) في التلخيص. يرجى تفعيل اشتراكك لتتمكن من المواصلة.");
+        alert("عفواً، لقد انتهت محاولاتك المجانية في التلخيص. سيتم توجيهك لتفعيل اشتراكك.");
+        forceScrollToLogin();
         return false;
     }
     return true;
@@ -202,7 +352,8 @@ function incrementAttempt() {
 function checkTeacherAttempts() {
     let tAttempts = parseInt(localStorage.getItem('teacher_attempts') || 0);
     if (tAttempts >= 2) {
-        alert("عفواً، لقد استنفدت محاولاتك المجانية (2/2) لتسجيل بصمة الشرح. يرجى تفعيل اشتراكك كمعلم.");
+        alert("عفواً، لقد استنفدت محاولاتك المجانية. سيتم توجيهك لتفعيل اشتراكك.");
+        forceScrollToLogin();
         return false;
     }
     return true;
@@ -214,7 +365,8 @@ function incrementTeacherAttempt() {
 function checkChatAttempts() {
     let chatAttempts = parseInt(localStorage.getItem('chat_attempts') || 0);
     if (chatAttempts >= 3) {
-        alert("عفواً! لقد استنفدت محاولاتك الثلاث المجانية للتحدث مع الروبوت.");
+        alert("انتهت محاولات التحدث المجانية. سيتم توجيهك لتفعيل الحساب.");
+        forceScrollToLogin();
         return false;
     }
     return true;
@@ -223,8 +375,7 @@ function incrementChatAttempt() {
     let chatAttempts = parseInt(localStorage.getItem('chat_attempts') || 0) + 1;
     localStorage.setItem('chat_attempts', chatAttempts);
     let remaining = 3 - chatAttempts;
-    if (remaining > 0) alert("تم استهلاك محاولة مجانية للتحدث. متبقي لك: " + remaining + " محاولات مجانية.");
-    else alert("انتهت محاولاتك المجانية الثلاث للتحدث.");
+    if (remaining > 0) alert("تم استهلاك محاولة مجانية للتحدث. متبقي لك: " + remaining);
 }
 
 // ============================================================================
@@ -232,15 +383,8 @@ function incrementChatAttempt() {
 // ============================================================================
 document.addEventListener('DOMContentLoaded', () => {
     
-    // تعديل مكان إدخال الاسم ليكون لرقم الموبايل
-    const nameInputBox = document.getElementById('teacher-full-name');
-    if (nameInputBox) {
-        nameInputBox.placeholder = "أدخل رقم الموبايل (لتسجيل الدخول كـ VIP)";
-    }
-    const checkBtn = document.getElementById('verify-teacher-btn');
-    if (checkBtn) {
-        checkBtn.innerText = "تسجيل الدخول بالرقم";
-    }
+    // بناء واجهة الفيس بوك فوراً
+    buildFacebookLogin();
 
     const subjectsDB = {
         primary_general: ["اللغة العربية", "الرياضيات", "اللغة الإنجليزية", "العلوم", "الدراسات الاجتماعية", "تكنولوجيا المعلومات", "التربية الدينية"],
@@ -280,8 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
         subjectContainer: document.getElementById('subject-container'),
         pathDisplay: document.getElementById('selected-path-display'),
         studentUploadSection: document.getElementById('student-upload-section'),
-        extractionSettings: document.getElementById('extraction-settings'),
-        teacherMode: document.getElementById('teacher-mode')
+        extractionSettings: document.getElementById('extraction-settings')
     };
 
     function normalizeText(text) { 
@@ -507,9 +650,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.subjectSelect.value = subject; ui.subjectSelect.dispatchEvent(new Event('change'));
     }
 
-    // =========================================================
-    // التعديل: دعم رفع حتى 5 صور معاً
-    // =========================================================
     const lessonUploadBox = document.getElementById('lesson-upload-box');
     const lessonImageInput = document.getElementById('lesson-image');
     
@@ -551,152 +691,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================================
-    // 8. التحقق وتسجيل الدخول للمستخدم العادي (بالرقم)
-    // ============================================================================
-    const teacherModeBtn = document.getElementById('teacher-mode');
-    
-    if (teacherModeBtn) {
-        teacherModeBtn.addEventListener('change', (event) => {
-            if (event.target.checked) {
-                showElement(document.getElementById('teacher-name-group'));
-            } else { 
-                hideElement(document.getElementById('teacher-name-group')); 
-                hideElement(document.getElementById('subscription-box')); 
-                currentTeacherId = null; 
-            }
-        });
-    }
-
-    async function fetchDeviceIP() {
-        try { 
-            const res = await fetch('https://api.ipify.org?format=json'); 
-            const data = await res.json(); return data.ip; 
-        } catch (error) { return "IP_UNKNOWN"; }
-    }
-
-    const verifyBtn = document.getElementById('verify-teacher-btn');
-    if (verifyBtn) {
-        verifyBtn.addEventListener('click', async () => {
-            const phoneNumber = document.getElementById('teacher-full-name').value.trim();
-            
-            if (phoneNumber.length < 10) { 
-                alert("برجاء إدخال رقم موبايل صحيح (11 رقم)."); 
-                return; 
-            }
-            
-            verifyBtn.innerText = "جاري التحقق من الرقم...";
-            currentTeacherId = phoneNumber; 
-            const currentIP = await fetchDeviceIP();
-            
-            let deviceFingerprint = localStorage.getItem("device_fingerprint");
-            if (!deviceFingerprint) {
-                deviceFingerprint = "DEV_" + Math.random().toString(36).substring(2, 15);
-                localStorage.setItem("device_fingerprint", deviceFingerprint);
-            }
-
-            const teacherRef = db.collection("teachers").doc(currentTeacherId);
-
-            try {
-                const doc = await teacherRef.get();
-                let teacherData = {};
-
-                if (doc.exists) {
-                    teacherData = doc.data();
-                    
-                    // --- التعديل هنا: الدخول المباشر لو الحساب متفعل مسبقاً ---
-                    if (teacherData.status === "VIP_Active") {
-                        verifyBtn.innerText = "تم تسجيل الدخول بنجاح";
-                        verifyBtn.style.backgroundColor = "var(--success-color)";
-                        document.getElementById('subscription-box').style.display = "none";
-                        alert("أهلاً بك مرة أخرى! تم تسجيل الدخول وتفعيل خصائص الـ VIP.");
-                        return; // وقف الكود هنا وميظهرش رسالة الدفع
-                    }
-                } else {
-                    // تسجيل حساب جديد
-                    teacherData = { 
-                        name: "User_" + phoneNumber, 
-                        phone: phoneNumber,
-                        registeredDeviceFingerprint: deviceFingerprint, 
-                        monthsSubscribed: 0, 
-                        status: "Free" 
-                    };
-                    await teacherRef.set(teacherData);
-                }
-
-                await teacherRef.update({ lastKnownIP: currentIP });
-                
-                // لو وصل هنا، معناه إنه حسابه Free ومحتاج يدفع
-                const requiredAmount = 50 + ((teacherData.monthsSubscribed || 0) * 50);
-                document.getElementById('price-display').innerText = 'مبلغ الاشتراك المطلوب منك هو: ' + requiredAmount + ' جنيه مصري';
-                showElement(document.getElementById('subscription-box'));
-                verifyBtn.innerText = "حسابك يحتاج لتفعيل"; 
-                verifyBtn.style.backgroundColor = "#eab308"; // لون أصفر للتنبيه
-                
-            } catch (error) {
-                alert("خطأ من قاعدة بيانات الفايربيز: \n" + error.message);
-                verifyBtn.innerText = "تسجيل الدخول بالرقم";
-            }
-        });
-    }
-
-    const uploadTriggerBtn = document.getElementById('upload-trigger-btn');
-    const receiptUpload = document.getElementById('receipt-upload');
-    
-    if (uploadTriggerBtn && receiptUpload) {
-        uploadTriggerBtn.addEventListener('click', () => {
-            receiptUpload.click();
-        });
-        
-        receiptUpload.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            if (!file || !currentTeacherId) return;
-
-            uploadTriggerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الرفع والتفعيل...';
-            uploadTriggerBtn.style.pointerEvents = "none";
-
-            try {
-                let storagePath = 'receipts/' + currentTeacherId + '_' + Date.now() + '_' + file.name;
-                const storageRef = storage.ref(storagePath);
-                const snapshot = await storageRef.put(file);
-                const downloadURL = await snapshot.ref.getDownloadURL();
-
-                const teacherRef = db.collection("teachers").doc(currentTeacherId);
-                const doc = await teacherRef.get();
-                const currentMonths = doc.data().monthsSubscribed || 0;
-
-                const paymentDate = new Date();
-                const expirationDate = new Date(paymentDate.getTime() + (30 * 24 * 60 * 60 * 1000)); 
-
-                await teacherRef.update({
-                    status: "VIP_Active", 
-                    subscriptionStart: paymentDate, 
-                    subscriptionEnd: expirationDate,
-                    lastPaymentReceipt: downloadURL, 
-                    monthsSubscribed: currentMonths + 1 
-                });
-
-                uploadTriggerBtn.innerHTML = '<i class="fas fa-check"></i> تم استلام الإيصال وتفعيل الحساب!';
-                uploadTriggerBtn.style.backgroundColor = "var(--success-color)";
-                
-                // تغيير حالة الزرار الرئيسي وإخفاء باقي تفاصيل الدفع
-                const checkBtn = document.getElementById('verify-teacher-btn');
-                if(checkBtn) {
-                    checkBtn.innerText = "تم تسجيل الدخول بنجاح";
-                    checkBtn.style.backgroundColor = "var(--success-color)";
-                }
-                setTimeout(() => { document.getElementById('subscription-box').style.display = "none"; }, 3000);
-                
-                alert("تم تفعيل حسابك كـ VIP بنجاح! جميع المميزات متاحة الآن.");
-                
-            } catch (error) {
-                alert("حدث خطأ أثناء معالجة رفع الإيصال.");
-                uploadTriggerBtn.innerHTML = '<i class="fas fa-upload"></i> رفع الإيصال وتفعيل الاشتراك مرة أخرى';
-                uploadTriggerBtn.style.pointerEvents = "auto";
-            }
-        });
-    }
-
-    // ============================================================================
     // 9. إرسال الطلب للسيرفر الخلفي (البايثون)
     // ============================================================================
     const processBtn = document.getElementById('process-btn');
@@ -704,7 +698,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (processBtn) {
         processBtn.addEventListener('click', async () => {
             
-            if (!ui.teacherMode.checked && !checkAttempts()) return;
+            if (!isVIPLoggedIn) {
+                if (!checkAttempts()) return;
+            } else {
+                const doc = await db.collection("teachers").doc(currentTeacherId).get();
+                if (doc.data().status !== "VIP_Active") { 
+                    alert("عفواً، يجب تفعيل اشتراكك أولاً."); 
+                    forceScrollToLogin();
+                    return; 
+                }
+            }
             
             const subject = ui.subjectSelect.value;
             let yearText = "";
@@ -712,18 +715,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 yearText = ui.yearStage.options[ui.yearStage.selectedIndex].text;
             }
             
-            if (ui.teacherMode.checked) {
-                if (!currentTeacherId) { 
-                    alert("يرجى إدخال رقم الموبايل والضغط على 'تسجيل الدخول' أولاً."); 
-                    return; 
-                }
-                const doc = await db.collection("teachers").doc(currentTeacherId).get();
-                if (doc.data().status !== "VIP_Active") { 
-                    alert("عفواً، يجب تفعيل اشتراكك أولاً."); 
-                    return; 
-                }
-            }
-
             if (!subject || !yearText) { 
                 alert("يرجى إكمال تحديد المرحلة، الصف الدراسي، والمادة العلمية أولاً."); return; 
             }
@@ -814,9 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
 
                     const response = await fetch('/api/analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(serverPayload)
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(serverPayload)
                     });
 
                     if (!response.ok) {
@@ -840,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     botSpeak(finalServerResponse.brief_explanation);
                 }
                 
-                if (!ui.teacherMode.checked) incrementAttempt();
+                if (!isVIPLoggedIn) incrementAttempt();
                 
                 setTimeout(() => { btnText.innerHTML = '🚀 تحليل صورة أخرى'; }, 3000);
                 
@@ -905,36 +894,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const elementToPrint = document.getElementById('pdf-template');
-        const originalScrollY = window.scrollY || document.documentElement.scrollTop;
-        window.scrollTo(0, 0); 
-        
-        elementToPrint.style.display = 'block';
-        elementToPrint.style.backgroundColor = 'white'; 
-        
+        const htmlContent = elementToPrint.innerHTML;
+
         const opt = {
             margin: 0.5,
             filename: 'Knowledge_Empire_' + serverData.subjectTitle.replace(/\s+/g, '_') + '_' + Date.now() + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, logging: false, useCORS: true, scrollY: 0, windowY: 0 },
+            html2canvas: { scale: 2, logging: false, useCORS: true },
             jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
         };
 
-        setTimeout(() => {
-            html2pdf().set(opt).from(elementToPrint).save().then(() => {
-                elementToPrint.style.display = 'none';
-                window.scrollTo(0, originalScrollY); 
-                btn.innerHTML = '<i class="fas fa-check"></i> تم التحميل بنجاح';
-                setTimeout(() => { btn.innerHTML = '<i class="fas fa-file-pdf"></i> تحميل التلخيص كملف PDF احترافي'; }, 3000);
-            }).catch(() => {
-                elementToPrint.style.display = 'none';
-                window.scrollTo(0, originalScrollY);
-                btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> حدث خطأ';
-            });
-        }, 500);
+        html2pdf().set(opt).from(htmlContent).save().then(() => {
+            btn.innerHTML = '<i class="fas fa-check"></i> تم التحميل بنجاح';
+            setTimeout(() => { btn.innerHTML = '<i class="fas fa-file-pdf"></i> تحميل التلخيص كملف PDF احترافي'; }, 3000);
+        });
     }
 
     // ============================================================================
-    // 11. برمجة الروبوت التفاعلي والشات
+    // 11. برمجة الروبوت التفاعلي والشات مع أدوات المعلم
     // ============================================================================
     const chatInput = document.getElementById('chat-input-field');
     const chatSendBtn = document.getElementById('chat-send-btn');
@@ -948,24 +925,25 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition.lang = 'ar-EG'; recognition.continuous = false; recognition.interimResults = false;
     }
 
-    const teacherRecordBtn = document.getElementById('teacher-record-btn');
-    if (teacherRecordBtn) {
-        teacherRecordBtn.addEventListener('click', () => {
-            if (!currentTeacherId && !checkTeacherAttempts()) return;
-            const subject = ui.subjectSelect.value;
-            let yearText = ui.yearStage.options[ui.yearStage.selectedIndex] ? ui.yearStage.options[ui.yearStage.selectedIndex].text : "";
-            if (!subject || !yearText) { alert("يرجى تحديد المرحلة والصف والمادة أولاً."); return; }
-            
-            if (recognition) {
-                isTeacherRecording = true;
-                try {
-                    recognition.start();
-                    teacherRecordBtn.classList.add('teacher-recording');
-                    teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> جاري تسجيل أسلوبك...';
-                } catch (e) { console.log("Error starting microphone"); }
-            } else { alert("متصفحك لا يدعم تسجيل الصوت."); }
-        });
-    }
+    // دالة تسجيل أسلوب المعلم (مربوطة بالزرار الجديد في الداش بورد)
+    window.startTeacherRecording = function() {
+        if (!isVIPLoggedIn) {
+            forceScrollToLogin();
+            return;
+        }
+        const subject = ui.subjectSelect.value;
+        let yearText = ui.yearStage.options[ui.yearStage.selectedIndex] ? ui.yearStage.options[ui.yearStage.selectedIndex].text : "";
+        if (!subject || !yearText) { alert("يرجى تحديد المرحلة والصف والمادة أولاً قبل بدء التسجيل."); return; }
+        
+        if (recognition) {
+            isTeacherRecording = true;
+            try {
+                recognition.start();
+                const btn = document.getElementById('fb-teacher-record-btn');
+                if(btn) btn.innerHTML = '<i class="fas fa-microphone-slash"></i> جاري تسجيل أسلوبك...';
+            } catch (e) { console.log("Error starting microphone"); }
+        } else { alert("متصفحك لا يدعم تسجيل الصوت."); }
+    };
 
     function botSpeak(textToSpeak) {
         if ('speechSynthesis' in window) {
@@ -993,7 +971,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function sendMessageToBot(messageText) {
         if (!messageText) return;
-        if (!currentTeacherId && !checkChatAttempts()) return;
+        if (!isVIPLoggedIn && !checkChatAttempts()) return;
+        
         appendMessage(messageText, 'user');
         if (chatInput) chatInput.value = "";
         
@@ -1029,7 +1008,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typingIndicator) typingIndicator.remove();
             
             setRobotState('idle'); appendMessage(aiReply, 'bot'); botSpeak(aiReply);
-            if (!currentTeacherId) incrementChatAttempt();
+            if (!isVIPLoggedIn) incrementChatAttempt();
             
         } catch (error) {
             console.error("Chat Error:", error);
@@ -1048,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (chatMicBtn) {
         chatMicBtn.addEventListener('click', async () => {
-            if (!currentTeacherId && !checkChatAttempts()) return;
+            if (!isVIPLoggedIn && !checkChatAttempts()) return;
             if (recognition) {
                 try {
                     isTeacherRecording = false; recognition.start();
@@ -1063,10 +1042,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const transcript = event.results[0][0].transcript;
             if (isTeacherRecording) {
                 isTeacherRecording = false;
-                if (teacherRecordBtn) { 
-                    teacherRecordBtn.classList.remove('teacher-recording'); 
-                    teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-alt"></i> تسجيل المعلم'; 
-                }
+                const btn = document.getElementById('fb-teacher-record-btn');
+                if(btn) btn.innerHTML = '<i class="fas fa-microphone-alt"></i> أداة تسجيل أسلوب المعلم'; 
+                
                 const subject = ui.subjectSelect.value;
                 let yearText = ui.yearStage.options[ui.yearStage.selectedIndex].text;
                 const summaryDocId = (subject + '_' + yearText).replace(/\s+/g, '_');
@@ -1074,7 +1052,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     await db.collection("teacher_styles").doc(summaryDocId).set({ styleText: transcript, createdAt: new Date() });
                     alert("تم حفظ بصمة شرحك بنجاح! سيتم دمجها مع الأنظمة العالمية للطلاب وتُحذف بعد 6 أشهر.");
                     globalTeacherStyle = transcript;
-                    if (!currentTeacherId) incrementTeacherAttempt();
                 } catch (e) { console.error("Error saving teacher style:", e); }
                 return;
             }
@@ -1084,9 +1061,8 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition.onerror = (event) => {
             if (isTeacherRecording) {
                 isTeacherRecording = false;
-                if (teacherRecordBtn) { 
-                    teacherRecordBtn.classList.remove('teacher-recording'); teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-alt"></i> تسجيل المعلم'; 
-                }
+                const btn = document.getElementById('fb-teacher-record-btn');
+                if(btn) btn.innerHTML = '<i class="fas fa-microphone-alt"></i> أداة تسجيل أسلوب المعلم';
             } else {
                 chatMicBtn.classList.remove('recording'); chatInput.placeholder = "اكتب سؤالك هنا..."; setRobotState('idle');
             }
@@ -1094,9 +1070,8 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition.onend = () => {
             if (isTeacherRecording) {
                 isTeacherRecording = false;
-                if (teacherRecordBtn) { 
-                    teacherRecordBtn.classList.remove('teacher-recording'); teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-alt"></i> تسجيل المعلم'; 
-                }
+                const btn = document.getElementById('fb-teacher-record-btn');
+                if(btn) btn.innerHTML = '<i class="fas fa-microphone-alt"></i> أداة تسجيل أسلوب المعلم';
             } else { chatMicBtn.classList.remove('recording'); chatInput.placeholder = "اكتب سؤالك هنا..."; }
         };
     }
