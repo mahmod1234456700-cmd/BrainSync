@@ -1,6 +1,6 @@
 // ============================================================================
 // ملف الجافاسكريبت الرئيسي (java.js) - مشروع إمبراطورية المعرفة
-// النسخة الخاصة بالاتصال المباشر والمؤمن بسيرفر البايثون الخلفي + نظام ضغط الصور
+// النسخة الخاصة بالاتصال المباشر والمؤمن بسيرفر البايثون الخلفي + كشف الأخطاء الحقيقية
 // ============================================================================
 
 const firebaseConfig = {
@@ -775,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================================
-    // 9. إرسال الطلب للسيرفر الخلفي (البايثون) + نظام ضغط الصور (Image Compression)
+    // 9. إرسال الطلب للسيرفر الخلفي (البايثون) + كشف الأخطاء الحقيقية
     // ============================================================================
     const processBtn = document.getElementById('process-btn');
     
@@ -877,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     // ==========================================
-                    // نظام ضغط الصور لتفادي خطأ 413 (Payload Too Large)
+                    // نظام ضغط الصور
                     // ==========================================
                     const imageBase64 = await new Promise((resolve, reject) => {
                         const reader = new FileReader();
@@ -907,7 +907,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const ctx = canvas.getContext('2d');
                                 ctx.drawImage(img, 0, 0, width, height);
                                 
-                                // ضغط الصورة بنسبة جودة 0.7 لتقليل مساحتها
                                 const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                                 resolve(dataUrl.split(',')[1]);
                             };
@@ -919,7 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     // ==========================================
-                    // الاتصال بسيرفر البايثون
+                    // الاتصال بسيرفر البايثون (مع كشف الخطأ الحقيقي)
                     // ==========================================
                     const serverPayload = {
                         action: 'analyze',
@@ -929,7 +928,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         mime_type: 'image/jpeg'
                     };
 
-                    // -- تم تعديل المسار هنا إلى /api/analyze --
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: { 
@@ -938,8 +936,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: JSON.stringify(serverPayload)
                     });
 
+                    // --- التعديل هنا: جلب رسالة الخطأ من السيرفر وعرضها ---
                     if (!response.ok) {
-                        throw new Error("فشل الاتصال بالسيرفر الخلفي على فيرسل");
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData.error || "فشل الاتصال بالسيرفر. الكود: " + response.status);
                     }
 
                     finalServerResponse = await response.json();
@@ -972,9 +972,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 
             } catch (error) {
                 console.error("خطأ تقني:", error);
-                btnText.innerHTML = '<i class="fas fa-exclamation-triangle"></i> خطأ في المعالجة';
+                btnText.innerHTML = '<i class="fas fa-exclamation-triangle"></i> حدث خطأ';
                 processBtn.classList.remove('processing');
-                alert("الخطأ التقني: " + error.message);
+                // الآن ستظهر الرسالة الحقيقية القادمة من البايثون
+                alert("الخطأ التقني الحقيقي هو: \n" + error.message);
             }
         });
     }
@@ -1179,9 +1180,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setRobotState('thinking');
         
         try {
-            // ==========================================
-            // الشات هنا بيكلم سيرفر البايثون
-            // ==========================================
             const chatServerPayload = {
                 action: 'chat',
                 subject: subjectVal,
@@ -1191,7 +1189,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 message: messageText
             };
 
-            // -- تم تعديل المسار هنا إلى /api/chat --
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 
@@ -1200,8 +1197,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(chatServerPayload)
             });
             
+            // --- التعديل هنا: جلب رسالة الخطأ من السيرفر وعرضها ---
             if (!response.ok) {
-                throw new Error("فشل الاتصال بخوادم فيرسل في الشات");
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || "فشل الاتصال بخوادم فيرسل في الشات");
             }
             
             const responseData = await response.json();
@@ -1234,7 +1233,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             setRobotState('idle');
-            appendMessage("حدث خطأ في الاتصال بالسيرفر، يرجى المحاولة مرة أخرى.", 'bot');
+            // إظهار الخطأ الحقيقي للمستخدم
+            appendMessage("حدث خطأ: " + error.message, 'bot');
         }
     }
 
