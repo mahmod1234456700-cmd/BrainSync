@@ -11,10 +11,15 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# دالة لسحب المفتاح وقت الطلب لضمان قراءته بنجاح في بيئة Vercel
+# =========================================================
+# الدالة الجديدة كما طلبتها بالضبط
+# =========================================================
 def get_gemini_url():
-    key = os.environ.get('GEMINI_API_KEY')
-    return f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+    key = os.environ["GEMINI_API_KEY"]
+    return (
+        "https://generativelanguage.googleapis.com/"
+        f"v1beta/models/gemini-2.5-flash:generateContent?key={key}"
+    )
 
 @app.route('/api/analyze', methods=['POST', 'OPTIONS'])
 @app.route('/analyze', methods=['POST', 'OPTIONS']) # مسار احتياطي لمنع توهان Vercel
@@ -134,3 +139,4 @@ def health():
 
 if __name__ == '__main__':
     app.run()
+    
