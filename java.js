@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const storage = firebase.storage();
 
 let currentTeacherId = null;
-let selectedLessonFiles = []; // تم التعديل لدعم مصفوفة من الصور
+let selectedLessonFiles = []; 
 let filterSelectedSubject = "";
 let filterSelectedStage = "";
 let filterSelectedType = "";
@@ -29,7 +29,7 @@ let globalTeacherStyle = "";
 let isTeacherRecording = false;
 
 // ============================================================================
-// نظام الشاشة المخفية للـ VIP المجاني
+// 1. نظام الشاشة المخفية للـ VIP المجاني والداش بورد (Dashboard)
 // ============================================================================
 document.getElementById('secret-trigger').addEventListener('dblclick', () => {
     document.getElementById('admin-modal').style.display = 'flex';
@@ -56,7 +56,7 @@ document.getElementById('admin-login-btn').addEventListener('click', async () =>
     }
     
     if (!allowedEmails.includes(email)) {
-        alert("هذا الحساب غير مصرح له بالدخول المجاني لـ VIP!");
+        alert("هذا الحساب غير مصرح له بالدخول المجاني كأدمن!");
         return;
     }
     
@@ -66,45 +66,122 @@ document.getElementById('admin-login-btn').addEventListener('click', async () =>
         const teacherRef = db.collection("teachers").doc(currentTeacherId);
         
         await teacherRef.set({
-            name: "VIP User",
+            name: "Admin VIP",
             email: email,
             status: "VIP_Active",
+            role: "Admin",
             subscriptionStart: new Date(),
             subscriptionEnd: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000) 
         }, { merge: true });
         
-        // التعديل هنا: استخدام المسار المباشر بدلاً من اختصار ui لتفادي خطأ undefined
         document.getElementById('teacher-mode').checked = true;
         document.getElementById('teacher-mode').dispatchEvent(new Event('change'));
         
-        document.getElementById('verify-teacher-btn').innerText = "تم تفعيل الـ VIP مجاناً";
+        // --- التعديل الجذري: إخفاء صندوق الدفع نهائياً للأدمن وبناء الداش بورد ---
+        document.getElementById('subscription-box').style.display = "none";
+        document.getElementById('verify-teacher-btn').innerText = "تم تسجيل الدخول كمسؤول VIP";
         document.getElementById('verify-teacher-btn').style.backgroundColor = "var(--success-color)";
-        document.getElementById('subscription-box').style.display = "block";
-        
-        alert("تم تفعيل حسابك كـ VIP مجاناً بنجاح!");
+        document.getElementById('teacher-full-name').style.display = "none";
         document.getElementById('admin-modal').style.display = 'none';
+        
+        alert("مرحباً بك يا مدير! تم فتح المنصة بالكامل بدون أي مصاريف.");
+        
+        buildAdminDashboardBtn();
         
     } catch (error) {
         alert("خطأ من قاعدة بيانات الفايربيز: \n" + error.message);
     }
 });
 
+// دالة بناء زر الداش بورد للأدمن فقط
+function buildAdminDashboardBtn() {
+    if (document.getElementById('open-dash-btn')) return;
+    
+    let btn = document.createElement('button');
+    btn.id = "open-dash-btn";
+    btn.className = "btn action-btn";
+    btn.style.backgroundColor = "#1e293b";
+    btn.style.marginTop = "15px";
+    btn.innerHTML = '<i class="fas fa-users-cog"></i> لوحة تحكم أرقام الـ VIP (Dashboard)';
+    btn.onclick = loadAndShowDashboard;
+    
+    document.querySelector('.teacher-section').appendChild(btn);
+}
+
+// دالة جلب وعرض الأرقام التي اشتركت في المنصة (Dashboard)
+async function loadAndShowDashboard() {
+    let container = document.createElement('div');
+    container.style.position = "fixed";
+    container.style.top = "5%";
+    container.style.left = "50%";
+    container.style.transform = "translateX(-50%)";
+    container.style.width = "95%";
+    container.style.maxWidth = "800px";
+    container.style.height = "90%";
+    container.style.backgroundColor = "#ffffff";
+    container.style.zIndex = "999999";
+    container.style.borderRadius = "15px";
+    container.style.boxShadow = "0 15px 40px rgba(0,0,0,0.5)";
+    container.style.padding = "20px";
+    container.style.overflowY = "auto";
+    container.style.direction = "rtl";
+
+    container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #3b82f6; padding-bottom:10px; margin-bottom:15px;">
+            <h2 style="color:#0f172a; margin:0;"><i class="fas fa-chart-line"></i> لوحة تحكم الحسابات (VIP)</h2>
+            <button id="close-dash-btn" style="background:#ef4444; color:white; border:none; padding:8px 15px; border-radius:8px; font-weight:bold; cursor:pointer;">إغلاق X</button>
+        </div>
+        <div id="dash-content" style="text-align:center;"><i class="fas fa-spinner fa-spin fa-2x"></i> جاري جلب الأرقام من الفايربيز...</div>
+    `;
+
+    document.body.appendChild(container);
+    
+    document.getElementById('close-dash-btn').onclick = () => {
+        container.remove();
+    };
+
+    try {
+        const snapshot = await db.collection("teachers").get();
+        let html = `
+            <table style="width:100%; border-collapse: collapse; text-align:right;" border="1">
+                <tr style="background-color:#f1f5f9; color:#334155;">
+                    <th style="padding:10px;">الرقم / المُعرّف</th>
+                    <th style="padding:10px;">حالة الحساب</th>
+                    <th style="padding:10px;">تاريخ التفعيل</th>
+                </tr>
+        `;
+        
+        let count = 0;
+        snapshot.forEach(doc => {
+            count++;
+            let data = doc.data();
+            let statusColor = data.status === "VIP_Active" ? "#059669" : "#ef4444";
+            let subDate = data.subscriptionStart ? new Date(data.subscriptionStart.seconds * 1000 || data.subscriptionStart).toLocaleDateString('ar-EG') : "لم يشترك بعد";
+            
+            html += `
+                <tr>
+                    <td style="padding:10px; font-weight:bold;">${doc.id}</td>
+                    <td style="padding:10px; color:${statusColor}; font-weight:bold;">${data.status}</td>
+                    <td style="padding:10px;">${subDate}</td>
+                </tr>
+            `;
+        });
+        
+        html += `</table><p style="margin-top:15px; color:#64748b;">إجمالي الحسابات المسجلة: ${count}</p>`;
+        document.getElementById('dash-content').innerHTML = html;
+        
+    } catch (e) {
+        document.getElementById('dash-content').innerHTML = `<p style="color:red;">حدث خطأ في جلب البيانات: ${e.message}</p>`;
+    }
+}
+
 function setRobotState(state) {
     const robotIcon = document.getElementById('robot-icon');
-    
-    if (!robotIcon) {
-        return;
-    }
-    
+    if (!robotIcon) return;
     robotIcon.classList.remove('robot-listening', 'robot-thinking', 'robot-speaking');
-    
-    if (state === 'listening') {
-        robotIcon.classList.add('robot-listening');
-    } else if (state === 'thinking') {
-        robotIcon.classList.add('robot-thinking');
-    } else if (state === 'speaking') {
-        robotIcon.classList.add('robot-speaking');
-    }
+    if (state === 'listening') robotIcon.classList.add('robot-listening');
+    else if (state === 'thinking') robotIcon.classList.add('robot-thinking');
+    else if (state === 'speaking') robotIcon.classList.add('robot-speaking');
 }
 
 // ============================================================================
@@ -118,12 +195,10 @@ function checkAttempts() {
     }
     return true;
 }
-
 function incrementAttempt() {
     let attempts = parseInt(localStorage.getItem('user_attempts') || 0) + 1;
     localStorage.setItem('user_attempts', attempts);
 }
-
 function checkTeacherAttempts() {
     let tAttempts = parseInt(localStorage.getItem('teacher_attempts') || 0);
     if (tAttempts >= 2) {
@@ -132,12 +207,10 @@ function checkTeacherAttempts() {
     }
     return true;
 }
-
 function incrementTeacherAttempt() {
     let tAttempts = parseInt(localStorage.getItem('teacher_attempts') || 0) + 1;
     localStorage.setItem('teacher_attempts', tAttempts);
 }
-
 function checkChatAttempts() {
     let chatAttempts = parseInt(localStorage.getItem('chat_attempts') || 0);
     if (chatAttempts >= 3) {
@@ -146,104 +219,43 @@ function checkChatAttempts() {
     }
     return true;
 }
-
 function incrementChatAttempt() {
     let chatAttempts = parseInt(localStorage.getItem('chat_attempts') || 0) + 1;
     localStorage.setItem('chat_attempts', chatAttempts);
-    
     let remaining = 3 - chatAttempts;
-    if (remaining > 0) {
-        alert("تم استهلاك محاولة مجانية للتحدث. متبقي لك: " + remaining + " محاولات مجانية.");
-    } else {
-        alert("انتهت محاولاتك المجانية الثلاث للتحدث.");
-    }
+    if (remaining > 0) alert("تم استهلاك محاولة مجانية للتحدث. متبقي لك: " + remaining + " محاولات مجانية.");
+    else alert("انتهت محاولاتك المجانية الثلاث للتحدث.");
 }
 
 // ============================================================================
-// تحميل المستند وقاعدة البيانات
+// تحميل المستند وقاعدة البيانات الأساسية
 // ============================================================================
 document.addEventListener('DOMContentLoaded', () => {
     
+    // تعديل مكان إدخال الاسم ليكون لرقم الموبايل
+    const nameInputBox = document.getElementById('teacher-full-name');
+    if (nameInputBox) {
+        nameInputBox.placeholder = "أدخل رقم الموبايل (لتسجيل الدخول كـ VIP)";
+    }
+    const checkBtn = document.getElementById('verify-teacher-btn');
+    if (checkBtn) {
+        checkBtn.innerText = "تسجيل الدخول بالرقم";
+    }
+
     const subjectsDB = {
-        primary_general: [
-            "اللغة العربية", "الرياضيات", "اللغة الإنجليزية (Connect)", "التربية الدينية الإسلامية", 
-            "التربية الدينية المسيحية", "القيم واحترام الآخر", "العلوم", "الدراسات الاجتماعية", 
-            "تكنولوجيا المعلومات والاتصالات (ICT)", "المهارات المهنية", "التربية الفنية", 
-            "التربية الموسيقية", "التربية البدنية", "التوكاتسو"
-        ],
-        primary_azhar: [
-            "القرآن الكريم", "التربية الإسلامية", "اللغة العربية", "الرياضيات", 
-            "اللغة الإنجليزية", "العلوم", "الدراسات الاجتماعية", "تكنولوجيا المعلومات والاتصالات", 
-            "المهارات المهنية"
-        ],
-        prep_general: [
-            "اللغة العربية", "الرياضيات (جبر وإحصاء)", "الرياضيات (هندسة)", "العلوم", 
-            "الدراسات الاجتماعية", "اللغة الإنجليزية", "التربية الدينية الإسلامية", 
-            "التربية الدينية المسيحية", "الحاسب الآلي وتكنولوجيا المعلومات", "التربية الفنية"
-        ],
-        prep_azhar: [
-            "القرآن الكريم", "الفقه", "أصول الدين (تفسير)", "أصول الدين (حديث)", 
-            "أصول الدين (توحيد)", "أصول الدين (سيرة نبوية)", "النحو", "الصرف", 
-            "المطالعة والنصوص", "الإنشاء", "الإملاء والخط", "الرياضيات (جبر وإحصاء)", 
-            "الرياضيات (هندسة)", "العلوم", "الدراسات الاجتماعية", "اللغة الإنجليزية", 
-            "الحاسب الآلي", "التربية الفنية"
-        ],
-        high_general_sci_biology: [
-            "اللغة العربية", "اللغة الإنجليزية", "اللغة الفرنسية", "اللغة الألمانية", 
-            "اللغة الإيطالية", "اللغة الإسبانية", "الفيزياء", "الكيمياء", "الأحياء", 
-            "الجيولوجيا وعلوم البيئة", "التربية الدينية", "التربية الوطنية", "الاقتصاد والإحصاء"
-        ],
-        high_general_sci_math: [
-            "اللغة العربية", "اللغة الإنجليزية", "اللغة الفرنسية", "اللغة الألمانية", 
-            "اللغة الإيطالية", "اللغة الإسبانية", "الفيزياء", "الكيمياء", 
-            "الرياضيات البحتة (تفاضل وتكامل)", "الرياضيات البحتة (جبر وهندسة فراغية)", 
-            "الرياضيات التطبيقية (استاتيكا)", "الرياضيات التطبيقية (ديناميكا)", 
-            "التربية الدينية", "التربية الوطنية", "الاقتصاد والإحصاء"
-        ],
-        high_general_lit: [
-            "اللغة العربية", "اللغة الإنجليزية", "اللغة الفرنسية", "اللغة الألمانية", 
-            "اللغة الإيطالية", "اللغة الإسبانية", "التاريخ", "الجغرافيا", "علم النفس والاجتماع", 
-            "الفلسفة والمنطق", "التربية الدينية", "التربية الوطنية", "الاقتصاد والإحصاء"
-        ],
-        high_azhar_sci: [
-            "القرآن الكريم", "الفقه", "التفسير", "الحديث", "التوحيد", "النحو", "الصرف", 
-            "البلاغة", "الأدب والنصوص", "اللغة الإنجليزية", "الفيزياء", "الكيمياء", 
-            "الأحياء", "الرياضيات (جبر وهندسة فراغية)", "الرياضيات (تفاضل وتكامل)", 
-            "الرياضيات (استاتيكا)", "الرياضيات (ديناميكا)"
-        ],
-        high_azhar_lit: [
-            "القرآن الكريم", "الفقه", "التفسير", "الحديث", "التوحيد", "النحو", "الصرف", 
-            "البلاغة", "الأدب والنصوص", "الإنشاء", "اللغة الإنجليزية", "اللغة الفرنسية", 
-            "التاريخ", "الجغرافيا", "المنطق"
-        ],
-        diploma_industrial: [
-            "اللغة العربية", "اللغة الإنجليزية", "الرياضيات", "الفيزياء العامة", 
-            "الحاسب الآلي", "التربية الدينية", "آلات كهربية", "رسم فني كهربائي", 
-            "تخطيط وإدارة إنتاج", "تحكم إلكتروني", "نظم إلكترونية", "دوائر منطقية", 
-            "شبكات كهربية", "أجهزة قياس", "اتصالات", "محركات سيارات", "تكنولوجيا اللحام", 
-            "صيانة وإصلاح", "رسم فني ميكانيكي", "تكنولوجيا الخراطة", "تكنولوجيا التبريد", 
-            "تكييف الهواء", "رسم فني تبريد وتكييف", "تكنولوجيا النجارة", "تكنولوجيا الملابس الجاهزة", 
-            "رسم فني معماري", "مقايسات عامة"
-        ],
-        diploma_commercial: [
-            "اللغة العربية", "اللغة الإنجليزية", "اللغة الأجنبية الثانية (فرنسي)", 
-            "الحاسب الآلي", "التربية الدينية", "إدارة أعمال", "إدارة مشتريات", 
-            "سكرتارية عربية", "سكرتارية إفرنجية", "اقتصاد", "إحصاء", "تسويق", 
-            "أعمال وساطة", "تأمينات أشخاص", "تأمينات هندسية", "رياضة مالية", 
-            "محاسبة مالية", "محاسبة شركات", "محاسبة ضرائب", "محاسبة حكومية", 
-            "قانون تجاري", "قانون عقوبات", "قانون مدني", "قانون مرافعات", "قانون عمل"
-        ],
-        diploma_agricultural: [
-            "اللغة العربية", "اللغة الإنجليزية", "الرياضيات", "الحاسب الآلي", 
-            "التربية الدينية", "الكيمياء الزراعية", "الفيزياء الزراعية", "الأحياء", 
-            "محاصيل الحقل", "تربية الحيوان والدواجن", "أمراض النبات", "حشرات اقتصادية", 
-            "الألبان", "الصناعات الزراعية", "الآفات", "استصلاح أراضي", "هندسة زراعية"
-        ],
-        diploma_tourism: [
-            "اللغة العربية", "اللغة الإنجليزية", "اللغة الأجنبية الثانية (فرنسي/ألماني/إيطالي)", 
-            "الحاسب الآلي", "التربية الدينية", "أصول فن الطهو", "خدمة المطاعم", 
-            "الإشراف الداخلي", "شركات السياحة", "اقتصاديات السياحة", "محاسبة فندقية", "أمن صناعي"
-        ]
+        primary_general: ["اللغة العربية", "الرياضيات", "اللغة الإنجليزية", "العلوم", "الدراسات الاجتماعية", "تكنولوجيا المعلومات", "التربية الدينية"],
+        primary_azhar: ["القرآن الكريم", "التربية الإسلامية", "اللغة العربية", "الرياضيات", "اللغة الإنجليزية", "العلوم", "الدراسات الاجتماعية"],
+        prep_general: ["اللغة العربية", "الرياضيات (جبر وإحصاء)", "الرياضيات (هندسة)", "العلوم", "الدراسات الاجتماعية", "اللغة الإنجليزية"],
+        prep_azhar: ["القرآن الكريم", "الفقه", "أصول الدين", "النحو", "الصرف", "الرياضيات", "العلوم", "الدراسات الاجتماعية", "اللغة الإنجليزية"],
+        high_general_sci_biology: ["اللغة العربية", "اللغة الإنجليزية", "الفيزياء", "الكيمياء", "الأحياء", "الجيولوجيا", "اللغة الأجنبية الثانية"],
+        high_general_sci_math: ["اللغة العربية", "اللغة الإنجليزية", "الفيزياء", "الكيمياء", "الرياضيات البحتة", "الرياضيات التطبيقية"],
+        high_general_lit: ["اللغة العربية", "اللغة الإنجليزية", "التاريخ", "الجغرافيا", "علم النفس", "الفلسفة والمنطق", "اللغة الأجنبية الثانية"],
+        high_azhar_sci: ["القرآن الكريم", "الفقه", "الحديث", "النحو", "الصرف", "الفيزياء", "الكيمياء", "الأحياء", "الرياضيات", "اللغة الإنجليزية"],
+        high_azhar_lit: ["القرآن الكريم", "الفقه", "الحديث", "النحو", "الصرف", "التاريخ", "الجغرافيا", "المنطق", "اللغة الإنجليزية"],
+        diploma_industrial: ["اللغة العربية", "اللغة الإنجليزية", "الرياضيات", "الفيزياء العامة", "تخصصات صناعية متعددة"],
+        diploma_commercial: ["اللغة العربية", "اللغة الإنجليزية", "إدارة أعمال", "محاسبة مالية", "سكرتارية", "اقتصاد وإحصاء"],
+        diploma_agricultural: ["اللغة العربية", "اللغة الإنجليزية", "الرياضيات", "محاصيل الحقل", "أمراض النبات", "صناعات زراعية"],
+        diploma_tourism: ["اللغة العربية", "اللغة الإنجليزية", "أصول فن الطهو", "خدمة المطاعم", "شركات السياحة", "محاسبة فندقية"]
     };
 
     function getOrdinal(i) {
@@ -273,9 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function normalizeText(text) { 
-        let normalized = text.replace(/[أإآ]/g, "ا");
-        normalized = normalized.replace(/ة/g, "ه");
-        normalized = normalized.replace(/ى/g, "ي");
+        let normalized = text.replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي");
         return normalized.toLowerCase(); 
     }
 
@@ -283,21 +293,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = normalizeText(event.target.value.trim());
         ui.searchResults.innerHTML = '';
         hideElement(ui.filterContainer);
-        
-        if (query.length < 2) { 
-            ui.searchResults.style.display = 'none'; 
-            return; 
-        }
+        if (query.length < 2) { ui.searchResults.style.display = 'none'; return; }
         
         let matchedSubjects = [];
-        
         for (const [pathKey, subjects] of Object.entries(subjectsDB)) {
             subjects.forEach((subject) => {
-                if (normalizeText(subject).includes(query)) {
-                    if (!matchedSubjects.includes(subject)) {
-                        matchedSubjects.push(subject);
-                    }
-                }
+                if (normalizeText(subject).includes(query) && !matchedSubjects.includes(subject)) matchedSubjects.push(subject);
             });
         }
 
@@ -329,26 +330,16 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.style.cursor = "pointer";
         btn.style.fontWeight = "bold"; 
         btn.innerHTML = text;
-        
-        btn.onmouseover = () => { 
-            btn.style.background = "var(--primary-light)"; 
-        };
-        
-        btn.onmouseout = () => { 
-            btn.style.background = "white"; 
-        };
-        
+        btn.onmouseover = () => { btn.style.background = "var(--primary-light)"; };
+        btn.onmouseout = () => { btn.style.background = "white"; };
         btn.onclick = onClickFunction;
         return btn;
     }
 
     function startFilterProcess(subject) {
         showElement(ui.filterContainer);
-        ui.filterStage.innerHTML = ''; 
-        ui.filterType.innerHTML = ''; 
-        ui.filterGrade.innerHTML = '';
+        ui.filterStage.innerHTML = ''; ui.filterType.innerHTML = ''; ui.filterGrade.innerHTML = '';
         ui.filterTitle.innerHTML = 'اختر المرحلة الدراسية لمادة: ' + subject;
-        
         ui.filterStage.appendChild(createFilterButton('المرحلة الابتدائية', () => selectFilterStage('primary')));
         ui.filterStage.appendChild(createFilterButton('المرحلة الإعدادية', () => selectFilterStage('prep')));
         ui.filterStage.appendChild(createFilterButton('المرحلة الثانوية', () => selectFilterStage('high')));
@@ -357,10 +348,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function selectFilterStage(stage) {
         filterSelectedStage = stage;
-        ui.filterType.innerHTML = ''; 
-        ui.filterGrade.innerHTML = '';
+        ui.filterType.innerHTML = ''; ui.filterGrade.innerHTML = '';
         ui.filterTitle.innerHTML = 'اختر نوع التعليم:';
-        
         if (stage === 'primary' || stage === 'prep') {
             ui.filterType.appendChild(createFilterButton('تربية وتعليم (عام)', () => selectFilterType('general')));
             ui.filterType.appendChild(createFilterButton('أزهري', () => selectFilterType('azhar')));
@@ -382,10 +371,8 @@ document.addEventListener('DOMContentLoaded', () => {
         filterSelectedType = type;
         ui.filterGrade.innerHTML = '';
         ui.filterTitle.innerHTML = 'اختر الصف الدراسي:';
-        
         let startGrade = 1;
         let endGrade = (filterSelectedStage === 'primary') ? 6 : 3;
-        
         for (let i = startGrade; i <= endGrade; i++) {
             ui.filterGrade.appendChild(createFilterButton('الصف ' + getOrdinal(i), () => finishFiltering(i)));
         }
@@ -395,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
         filterSelectedGrade = grade;
         hideElement(ui.filterContainer);
         let finalPath = "";
-        
         if (filterSelectedStage === 'primary' || filterSelectedStage === 'prep') {
             finalPath = filterSelectedStage + '_' + filterSelectedType;
         } else if (filterSelectedStage === 'high') {
@@ -403,43 +389,29 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (filterSelectedStage === 'diploma') {
             finalPath = 'diploma_' + filterSelectedType;
         }
-        
         autoFillDropdowns(finalPath, filterSelectedGrade, filterSelectedSubject);
     }
 
     function updatePathDisplay() {
-        if (!ui.pathDisplay) {
-            return; 
-        }
+        if (!ui.pathDisplay) return; 
         try {
             let stage = ui.mainStage.options[ui.mainStage.selectedIndex] ? ui.mainStage.options[ui.mainStage.selectedIndex].text : "";
             let sub = ui.subStage.options[ui.subStage.selectedIndex] ? ui.subStage.options[ui.subStage.selectedIndex].text : "";
             let year = ui.yearStage.options[ui.yearStage.selectedIndex] ? ui.yearStage.options[ui.yearStage.selectedIndex].text : "";
             const subject = ui.subjectSelect.value;
-            
             let path = stage;
-            
-            if (sub && !sub.includes('--')) {
-                path += ` > ${sub}`;
-            }
-            if (year && !year.includes('--')) {
-                path += ` > ${year}`;
-            }
-            if (subject) {
-                path += ` > ${subject}`;
-            }
+            if (sub && !sub.includes('--')) path += ` > ${sub}`;
+            if (year && !year.includes('--')) path += ` > ${year}`;
+            if (subject) path += ` > ${subject}`;
             
             ui.pathDisplay.innerHTML = '<i class="fas fa-map-marker-alt"></i> مسار المادة المحدد: <br> ' + path;
             ui.pathDisplay.style.display = 'block';
-        } catch (error) {
-            console.log("Error in updatePathDisplay");
-        }
+        } catch (error) {}
     }
 
     ui.mainStage.addEventListener('change', (event) => {
         const val = event.target.value; 
         hideAllChildSections();
-        
         if (val === 'primary' || val === 'prep') { 
             ui.subStage.innerHTML = '<option value="">-- حدد نوع التعليم --</option><option value="general">تربية وتعليم (عام)</option><option value="azhar">أزهري</option>';
             showElement(ui.subStageContainer); 
@@ -458,22 +430,14 @@ document.addEventListener('DOMContentLoaded', () => {
     ui.subStage.addEventListener('change', (event) => {
         if (event.target.value) {
             currentTrackPath = ui.mainStage.value;
+            if (!currentTrackPath.includes('high_') && currentTrackPath !== 'diploma') currentTrackPath += '_';
+            else if (currentTrackPath === 'diploma') currentTrackPath += '_';
             
-            if (!currentTrackPath.includes('high_') && currentTrackPath !== 'diploma') {
-                currentTrackPath += '_';
-            } else if (currentTrackPath === 'diploma') {
-                currentTrackPath += '_';
-            }
-            
-            if (ui.mainStage.value.includes('high')) {
-                currentTrackPath = ui.mainStage.value + '_' + event.target.value;
-            } else {
-                currentTrackPath += event.target.value;
-            }
+            if (ui.mainStage.value.includes('high')) currentTrackPath = ui.mainStage.value + '_' + event.target.value;
+            else currentTrackPath += event.target.value;
             
             let limit = (ui.mainStage.value === 'primary') ? 6 : 3;
             populateYears(1, limit, ui.mainStage.value.split('_')[0]);
-            
             showElement(ui.yearStageContainer);
         } else {
             hideAllChildSections(true);
@@ -484,30 +448,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.target.value) { 
             populateSubjects(currentTrackPath); 
             showElement(ui.subjectContainer); 
-            if (ui.pathDisplay) {
-                ui.pathDisplay.style.display = 'none'; 
-            }
+            if (ui.pathDisplay) ui.pathDisplay.style.display = 'none'; 
         } else { 
-            hideElement(ui.subjectContainer); 
-            hideElement(ui.extractionSettings); 
-            hideElement(ui.studentUploadSection); 
-            if (ui.pathDisplay) {
-                ui.pathDisplay.style.display = 'none'; 
-            }
+            hideElement(ui.subjectContainer); hideElement(ui.extractionSettings); hideElement(ui.studentUploadSection); 
+            if (ui.pathDisplay) ui.pathDisplay.style.display = 'none'; 
         }
     });
 
     ui.subjectSelect.addEventListener('change', (event) => {
         if (event.target.value) { 
-            showElement(ui.studentUploadSection); 
-            showElement(ui.extractionSettings); 
-            updatePathDisplay(); 
+            showElement(ui.studentUploadSection); showElement(ui.extractionSettings); updatePathDisplay(); 
         } else { 
-            hideElement(ui.extractionSettings); 
-            hideElement(ui.studentUploadSection); 
-            if (ui.pathDisplay) {
-                ui.pathDisplay.style.display = 'none'; 
-            }
+            hideElement(ui.extractionSettings); hideElement(ui.studentUploadSection); 
+            if (ui.pathDisplay) ui.pathDisplay.style.display = 'none'; 
         }
     });
 
@@ -515,83 +468,43 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '<option value="">-- اختر الصف الدراسي --</option>';
         for (let i = start; i <= end; i++) { 
             html += '<option value="' + i + '">الصف ' + getOrdinal(i);
-            if (stageType === 'primary') {
-                html += ' الابتدائي';
-            } else if (stageType === 'prep') {
-                html += ' الإعدادي';
-            } else if (stageType === 'high') {
-                html += ' الثانوي';
-            } else if (stageType === 'diploma') {
-                html += ' (دبلوم)';
-            }
+            if (stageType === 'primary') html += ' الابتدائي';
+            else if (stageType === 'prep') html += ' الإعدادي';
+            else if (stageType === 'high') html += ' الثانوي';
+            else if (stageType === 'diploma') html += ' (دبلوم)';
             html += '</option>';
         }
         ui.yearStage.innerHTML = html; 
-        hideElement(ui.subjectContainer); 
-        hideElement(ui.studentUploadSection);
+        hideElement(ui.subjectContainer); hideElement(ui.studentUploadSection);
     }
     
     function populateSubjects(path) {
         const subjects = subjectsDB[path] || []; 
         let html = '<option value="">-- اختر المادة العلمية --</option>';
-        subjects.forEach((sub) => { 
-            html += '<option value="' + sub + '">' + sub + '</option>'; 
-        });
+        subjects.forEach((sub) => { html += '<option value="' + sub + '">' + sub + '</option>'; });
         ui.subjectSelect.innerHTML = html;
     }
     
-    function showElement(el) { 
-        if (!el) {
-            return; 
-        }
-        el.classList.remove('hidden-section'); 
-        el.classList.add('show-anim'); 
-    }
-    
-    function hideElement(el) { 
-        if (!el) {
-            return; 
-        }
-        el.classList.remove('show-anim'); 
-        el.classList.add('hidden-section'); 
-    }
-    
+    function showElement(el) { if (!el) return; el.classList.remove('hidden-section'); el.classList.add('show-anim'); }
+    function hideElement(el) { if (!el) return; el.classList.remove('show-anim'); el.classList.add('hidden-section'); }
     function hideAllChildSections(keepSub = false) { 
-        if (!keepSub) {
-            hideElement(ui.subStageContainer); 
-        }
-        hideElement(ui.yearStageContainer); 
-        hideElement(ui.subjectContainer); 
-        hideElement(ui.extractionSettings); 
-        hideElement(ui.studentUploadSection);
-        if (ui.pathDisplay) {
-            ui.pathDisplay.style.display = 'none'; 
-        }
+        if (!keepSub) hideElement(ui.subStageContainer); 
+        hideElement(ui.yearStageContainer); hideElement(ui.subjectContainer); hideElement(ui.extractionSettings); hideElement(ui.studentUploadSection);
+        if (ui.pathDisplay) ui.pathDisplay.style.display = 'none'; 
     }
 
     function autoFillDropdowns(pathKey, yearIndex, subject) {
         const parts = pathKey.split('_');
-        
-        if (parts[0] === 'high') {
-            ui.mainStage.value = parts[0] + '_' + parts[1];
-        } else {
-            ui.mainStage.value = parts[0];
-        }
+        if (parts[0] === 'high') ui.mainStage.value = parts[0] + '_' + parts[1];
+        else ui.mainStage.value = parts[0];
         
         ui.mainStage.dispatchEvent(new Event('change'));
-        
-        if (parts[0] === 'high' && parts.length > 2) {
-            ui.subStage.value = parts.slice(2).join('_');
-        } else if (parts.length > 1) {
-            ui.subStage.value = parts.slice(1).join('_');
-        }
+        if (parts[0] === 'high' && parts.length > 2) ui.subStage.value = parts.slice(2).join('_');
+        else if (parts.length > 1) ui.subStage.value = parts.slice(1).join('_');
         
         ui.subStage.dispatchEvent(new Event('change'));
-        
-        ui.yearStage.value = yearIndex;
-        ui.yearStage.dispatchEvent(new Event('change'));
-        ui.subjectSelect.value = subject;
-        ui.subjectSelect.dispatchEvent(new Event('change'));
+        ui.yearStage.value = yearIndex; ui.yearStage.dispatchEvent(new Event('change'));
+        ui.subjectSelect.value = subject; ui.subjectSelect.dispatchEvent(new Event('change'));
     }
 
     // =========================================================
@@ -600,28 +513,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const lessonUploadBox = document.getElementById('lesson-upload-box');
     const lessonImageInput = document.getElementById('lesson-image');
     
-    lessonUploadBox.addEventListener('click', () => { 
-        lessonImageInput.click(); 
-    });
+    lessonUploadBox.addEventListener('click', () => { lessonImageInput.click(); });
 
     lessonImageInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
             if (event.target.files.length > 5) {
                 alert("عفواً، أقصى عدد مسموح به هو 5 صور في المرة الواحدة لحماية سرعة الإنترنت.");
-                event.target.value = ""; 
-                return;
+                event.target.value = ""; return;
             }
-
             for(let i=0; i < event.target.files.length; i++){
                 if (!event.target.files[i].type.includes('image')) {
                     alert("عفواً، مسموح برفع الصور فقط.");
-                    event.target.value = ""; 
-                    return;
+                    event.target.value = ""; return;
                 }
             }
-            
             selectedLessonFiles = Array.from(event.target.files);
-            
             const reader = new FileReader();
             reader.onload = (e) => {
                 const previewImg = document.getElementById('image-preview');
@@ -645,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================================
-    // 8. التحقق والدفع للمعلم والطالب 
+    // 8. التحقق وتسجيل الدخول للمستخدم العادي (بالرقم)
     // ============================================================================
     const teacherModeBtn = document.getElementById('teacher-mode');
     
@@ -664,26 +570,22 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchDeviceIP() {
         try { 
             const res = await fetch('https://api.ipify.org?format=json'); 
-            const data = await res.json(); 
-            return data.ip; 
-        } catch (error) { 
-            return "IP_UNKNOWN"; 
-        }
+            const data = await res.json(); return data.ip; 
+        } catch (error) { return "IP_UNKNOWN"; }
     }
 
     const verifyBtn = document.getElementById('verify-teacher-btn');
     if (verifyBtn) {
         verifyBtn.addEventListener('click', async () => {
-            const fullName = document.getElementById('teacher-full-name').value.trim();
+            const phoneNumber = document.getElementById('teacher-full-name').value.trim();
             
-            if (fullName.split(" ").length < 4) { 
-                alert("برجاء إدخال الاسم الرباعي بشكل صحيح."); 
+            if (phoneNumber.length < 10) { 
+                alert("برجاء إدخال رقم موبايل صحيح (11 رقم)."); 
                 return; 
             }
             
-            verifyBtn.innerText = "جاري الاتصال بالخوادم للتحقق...";
-            const teacherId = fullName.replace(/\s+/g, '_'); 
-            currentTeacherId = teacherId;
+            verifyBtn.innerText = "جاري التحقق من الرقم...";
+            currentTeacherId = phoneNumber; 
             const currentIP = await fetchDeviceIP();
             
             let deviceFingerprint = localStorage.getItem("device_fingerprint");
@@ -692,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem("device_fingerprint", deviceFingerprint);
             }
 
-            const teacherRef = db.collection("teachers").doc(teacherId);
+            const teacherRef = db.collection("teachers").doc(currentTeacherId);
 
             try {
                 const doc = await teacherRef.get();
@@ -700,16 +602,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (doc.exists) {
                     teacherData = doc.data();
-                    if (teacherData.registeredDeviceFingerprint && teacherData.registeredDeviceFingerprint !== deviceFingerprint) {
-                        alert("عفواً، لا يمكنك تسجيل الدخول. هذا الحساب مرتبط بجهاز آخر لمنع التلاعب.");
-                        verifyBtn.innerText = "تحقق من الحساب"; 
-                        ui.teacherMode.checked = false; 
-                        hideElement(document.getElementById('teacher-name-group')); 
-                        return;
+                    
+                    // --- التعديل هنا: الدخول المباشر لو الحساب متفعل مسبقاً ---
+                    if (teacherData.status === "VIP_Active") {
+                        verifyBtn.innerText = "تم تسجيل الدخول بنجاح";
+                        verifyBtn.style.backgroundColor = "var(--success-color)";
+                        document.getElementById('subscription-box').style.display = "none";
+                        alert("أهلاً بك مرة أخرى! تم تسجيل الدخول وتفعيل خصائص الـ VIP.");
+                        return; // وقف الكود هنا وميظهرش رسالة الدفع
                     }
                 } else {
+                    // تسجيل حساب جديد
                     teacherData = { 
-                        name: fullName, 
+                        name: "User_" + phoneNumber, 
+                        phone: phoneNumber,
                         registeredDeviceFingerprint: deviceFingerprint, 
                         monthsSubscribed: 0, 
                         status: "Free" 
@@ -719,15 +625,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 await teacherRef.update({ lastKnownIP: currentIP });
                 
+                // لو وصل هنا، معناه إنه حسابه Free ومحتاج يدفع
                 const requiredAmount = 50 + ((teacherData.monthsSubscribed || 0) * 50);
-                document.getElementById('price-display').innerText = 'مبلغ الاشتراك المطلوب منك هذا الشهر هو: ' + requiredAmount + ' جنيه مصري';
+                document.getElementById('price-display').innerText = 'مبلغ الاشتراك المطلوب منك هو: ' + requiredAmount + ' جنيه مصري';
                 showElement(document.getElementById('subscription-box'));
-                verifyBtn.innerText = "تم التحقق من الحساب بنجاح"; 
-                verifyBtn.style.backgroundColor = "var(--success-color)";
+                verifyBtn.innerText = "حسابك يحتاج لتفعيل"; 
+                verifyBtn.style.backgroundColor = "#eab308"; // لون أصفر للتنبيه
                 
             } catch (error) {
-                alert("حدث خطأ في الاتصال."); 
-                verifyBtn.innerText = "تحقق من الحساب";
+                alert("خطأ من قاعدة بيانات الفايربيز: \n" + error.message);
+                verifyBtn.innerText = "تسجيل الدخول بالرقم";
             }
         });
     }
@@ -742,11 +649,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         receiptUpload.addEventListener('change', async (event) => {
             const file = event.target.files[0];
-            if (!file || !currentTeacherId) {
-                return;
-            }
+            if (!file || !currentTeacherId) return;
 
-            uploadTriggerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري رفع الإيصال...';
+            uploadTriggerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الرفع والتفعيل...';
             uploadTriggerBtn.style.pointerEvents = "none";
 
             try {
@@ -772,7 +677,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 uploadTriggerBtn.innerHTML = '<i class="fas fa-check"></i> تم استلام الإيصال وتفعيل الحساب!';
                 uploadTriggerBtn.style.backgroundColor = "var(--success-color)";
-                alert("تم التفعيل التلقائي بنجاح لمدة 30 يوماً.");
+                
+                // تغيير حالة الزرار الرئيسي وإخفاء باقي تفاصيل الدفع
+                const checkBtn = document.getElementById('verify-teacher-btn');
+                if(checkBtn) {
+                    checkBtn.innerText = "تم تسجيل الدخول بنجاح";
+                    checkBtn.style.backgroundColor = "var(--success-color)";
+                }
+                setTimeout(() => { document.getElementById('subscription-box').style.display = "none"; }, 3000);
+                
+                alert("تم تفعيل حسابك كـ VIP بنجاح! جميع المميزات متاحة الآن.");
                 
             } catch (error) {
                 alert("حدث خطأ أثناء معالجة رفع الإيصال.");
@@ -783,27 +697,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================================
-    // 9. إرسال الطلب للسيرفر الخلفي (البايثون) + كشف الأخطاء الحقيقية
+    // 9. إرسال الطلب للسيرفر الخلفي (البايثون)
     // ============================================================================
     const processBtn = document.getElementById('process-btn');
     
     if (processBtn) {
         processBtn.addEventListener('click', async () => {
             
-            if (!ui.teacherMode.checked && !checkAttempts()) {
-                return;
-            }
+            if (!ui.teacherMode.checked && !checkAttempts()) return;
             
             const subject = ui.subjectSelect.value;
             let yearText = "";
-            
             if (ui.yearStage.options[ui.yearStage.selectedIndex]) {
                 yearText = ui.yearStage.options[ui.yearStage.selectedIndex].text;
             }
             
             if (ui.teacherMode.checked) {
                 if (!currentTeacherId) { 
-                    alert("يرجى إدخال اسمك الرباعي والضغط على زر 'تحقق من الحساب' أولاً."); 
+                    alert("يرجى إدخال رقم الموبايل والضغط على 'تسجيل الدخول' أولاً."); 
                     return; 
                 }
                 const doc = await db.collection("teachers").doc(currentTeacherId).get();
@@ -814,13 +725,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (!subject || !yearText) { 
-                alert("يرجى إكمال تحديد المرحلة، الصف الدراسي، والمادة العلمية أولاً."); 
-                return; 
+                alert("يرجى إكمال تحديد المرحلة، الصف الدراسي، والمادة العلمية أولاً."); return; 
             }
-            
             if (selectedLessonFiles.length === 0) { 
-                alert("يرجى تصوير أو إرفاق صورة أولاً."); 
-                return; 
+                alert("يرجى تصوير أو إرفاق صورة أولاً."); return; 
             }
 
             const btnText = document.getElementById('btn-text');
@@ -833,20 +741,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const styleRef = db.collection("teacher_styles").doc(summaryDocId);
                 const styleSnap = await styleRef.get();
-                
                 if (styleSnap.exists) {
                     let sData = styleSnap.data();
                     let sTime = sData.createdAt.toDate ? sData.createdAt.toDate().getTime() : sData.createdAt;
-                    
                     if (Date.now() - sTime > (6 * 30 * 24 * 60 * 60 * 1000)) {
-                        await styleRef.delete(); 
-                        globalTeacherStyle = "";
-                    } else {
-                        globalTeacherStyle = sData.styleText;
-                    }
-                } else {
-                    globalTeacherStyle = "";
-                }
+                        await styleRef.delete(); globalTeacherStyle = "";
+                    } else { globalTeacherStyle = sData.styleText; }
+                } else { globalTeacherStyle = ""; }
 
                 const newImageHash = await generateFileHash(selectedLessonFiles[0]) + "_" + selectedLessonFiles.length;
                 const summaryRef = db.collection("summaries").doc(summaryDocId);
@@ -856,9 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let finalServerResponse = null;
                 let existingData = {};
                 
-                if (docSnap.exists) {
-                    existingData = docSnap.data();
-                }
+                if (docSnap.exists) existingData = docSnap.data();
 
                 if (existingData.archived_version && existingData.archived_version.archived_at) {
                     let archivedTime = existingData.archived_version.archived_at.toDate ? existingData.archived_version.archived_at.toDate().getTime() : existingData.archived_version.archived_at.getTime();
@@ -868,18 +767,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (existingData.current_version && existingData.current_version.imageHash === newImageHash) {
-                    needNewUploadAndAPI = false; 
-                    finalServerResponse = existingData.current_version.aiData;
+                    needNewUploadAndAPI = false; finalServerResponse = existingData.current_version.aiData;
                 } 
-                
                 if (needNewUploadAndAPI && existingData.archived_version && existingData.archived_version.imageHash === newImageHash) {
-                    needNewUploadAndAPI = false; 
-                    finalServerResponse = existingData.archived_version.aiData;
+                    needNewUploadAndAPI = false; finalServerResponse = existingData.archived_version.aiData;
                 }
 
                 if (needNewUploadAndAPI) {
                     btnText.innerHTML = '<i class="fas fa-compress"></i> جاري الإرسال للسيرفر الخلفي...';
-
                     if (existingData.current_version) {
                         existingData.archived_version = { ...existingData.current_version, archived_at: new Date() };
                     }
@@ -894,34 +789,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const canvas = document.createElement('canvas');
                                     const MAX_WIDTH = 1200;
                                     const MAX_HEIGHT = 1200;
-                                    let width = img.width;
-                                    let height = img.height;
-
-                                    if (width > height) {
-                                        if (width > MAX_WIDTH) {
-                                            height *= MAX_WIDTH / width;
-                                            width = MAX_WIDTH;
-                                        }
-                                    } else {
-                                        if (height > MAX_HEIGHT) {
-                                            width *= MAX_HEIGHT / height;
-                                            height = MAX_HEIGHT;
-                                        }
-                                    }
-                                    
-                                    canvas.width = width;
-                                    canvas.height = height;
+                                    let width = img.width; let height = img.height;
+                                    if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
+                                    else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+                                    canvas.width = width; canvas.height = height;
                                     const ctx = canvas.getContext('2d');
                                     ctx.drawImage(img, 0, 0, width, height);
-                                    
                                     const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                                     resolve(dataUrl.split(',')[1]);
                                 };
-                                img.onerror = reject;
-                                img.src = event.target.result;
+                                img.onerror = reject; img.src = event.target.result;
                             };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(file);
+                            reader.onerror = reject; reader.readAsDataURL(file);
                         });
                         imagesBase64List.push(base64);
                     }
@@ -936,9 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json' 
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(serverPayload)
                     });
 
@@ -948,17 +825,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     finalServerResponse = await response.json();
+                    if (finalServerResponse.error) throw new Error(finalServerResponse.error);
 
-                    if (finalServerResponse.error) {
-                        throw new Error(finalServerResponse.error);
-                    }
-
-                    existingData.current_version = { 
-                        imageHash: newImageHash, 
-                        aiData: finalServerResponse, 
-                        lastUpdated: new Date().toISOString() 
-                    };
-                    
+                    existingData.current_version = { imageHash: newImageHash, aiData: finalServerResponse, lastUpdated: new Date().toISOString() };
                     await summaryRef.set(existingData);
                 }
                 
@@ -971,13 +840,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     botSpeak(finalServerResponse.brief_explanation);
                 }
                 
-                if (!ui.teacherMode.checked) {
-                    incrementAttempt();
-                }
+                if (!ui.teacherMode.checked) incrementAttempt();
                 
-                setTimeout(() => { 
-                    btnText.innerHTML = '🚀 تحليل صورة أخرى'; 
-                }, 3000);
+                setTimeout(() => { btnText.innerHTML = '🚀 تحليل صورة أخرى'; }, 3000);
                 
             } catch (error) {
                 console.error("خطأ تقني:", error);
@@ -1010,13 +875,9 @@ document.addEventListener('DOMContentLoaded', () => {
         resultHtml += '<button id="real-download-btn" class="download-pdf-btn"><i class="fas fa-file-pdf"></i> تحميل التلخيص كملف PDF احترافي</button></div>';
         
         document.getElementById('ai-response-text').innerHTML = resultHtml;
-        
         globalLessonContext = JSON.stringify(serverData.qa_data);
         
-        document.getElementById('real-download-btn').addEventListener('click', () => { 
-            generateRealPDF(serverData); 
-        });
-        
+        document.getElementById('real-download-btn').addEventListener('click', () => { generateRealPDF(serverData); });
         document.getElementById('ai-output-container').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
@@ -1039,7 +900,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let pdfCreationDate = new Date(serverData.lastUpdated || Date.now()).toLocaleDateString('ar-EG');
         let footerElement = document.querySelector('#pdf-template > div > div:last-child');
-        
         if (footerElement) {
             footerElement.innerHTML = 'تاريخ الإنشاء: ' + pdfCreationDate + ' | عدد الأسئلة المستخرجة: ' + questionCount + '<br>تم التوليد بواسطة منصة إمبراطورية المعرفة للذكاء الاصطناعي © 2026';
         }
@@ -1055,13 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
             margin: 0.5,
             filename: 'Knowledge_Empire_' + serverData.subjectTitle.replace(/\s+/g, '_') + '_' + Date.now() + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { 
-                scale: 2, 
-                logging: false, 
-                useCORS: true,
-                scrollY: 0,
-                windowY: 0
-            },
+            html2canvas: { scale: 2, logging: false, useCORS: true, scrollY: 0, windowY: 0 },
             jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
         };
 
@@ -1069,11 +923,8 @@ document.addEventListener('DOMContentLoaded', () => {
             html2pdf().set(opt).from(elementToPrint).save().then(() => {
                 elementToPrint.style.display = 'none';
                 window.scrollTo(0, originalScrollY); 
-                
                 btn.innerHTML = '<i class="fas fa-check"></i> تم التحميل بنجاح';
-                setTimeout(() => { 
-                    btn.innerHTML = '<i class="fas fa-file-pdf"></i> تحميل التلخيص كملف PDF احترافي'; 
-                }, 3000);
+                setTimeout(() => { btn.innerHTML = '<i class="fas fa-file-pdf"></i> تحميل التلخيص كملف PDF احترافي'; }, 3000);
             }).catch(() => {
                 elementToPrint.style.display = 'none';
                 window.scrollTo(0, originalScrollY);
@@ -1092,29 +943,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
-    
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
-        recognition.lang = 'ar-EG'; 
-        recognition.continuous = false;
-        recognition.interimResults = false;
+        recognition.lang = 'ar-EG'; recognition.continuous = false; recognition.interimResults = false;
     }
 
     const teacherRecordBtn = document.getElementById('teacher-record-btn');
-    
     if (teacherRecordBtn) {
         teacherRecordBtn.addEventListener('click', () => {
-            if (!currentTeacherId && !checkTeacherAttempts()) {
-                return;
-            }
-            
+            if (!currentTeacherId && !checkTeacherAttempts()) return;
             const subject = ui.subjectSelect.value;
             let yearText = ui.yearStage.options[ui.yearStage.selectedIndex] ? ui.yearStage.options[ui.yearStage.selectedIndex].text : "";
-            
-            if (!subject || !yearText) { 
-                alert("يرجى تحديد المرحلة والصف والمادة أولاً."); 
-                return; 
-            }
+            if (!subject || !yearText) { alert("يرجى تحديد المرحلة والصف والمادة أولاً."); return; }
             
             if (recognition) {
                 isTeacherRecording = true;
@@ -1122,12 +962,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     recognition.start();
                     teacherRecordBtn.classList.add('teacher-recording');
                     teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> جاري تسجيل أسلوبك...';
-                } catch (e) {
-                    console.log("Error starting microphone");
-                }
-            } else {
-                alert("متصفحك لا يدعم تسجيل الصوت.");
-            }
+                } catch (e) { console.log("Error starting microphone"); }
+            } else { alert("متصفحك لا يدعم تسجيل الصوت."); }
         });
     }
 
@@ -1136,244 +972,132 @@ document.addEventListener('DOMContentLoaded', () => {
             let cleanText = textToSpeak.replace(/<[^>]*>?/gm, '');
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ar-EG';
-            
-            utterance.onstart = () => { 
-                setRobotState('speaking'); 
-            };
-            
-            utterance.onend = () => { 
-                setRobotState('idle'); 
-            };
-            
+            utterance.onstart = () => { setRobotState('speaking'); };
+            utterance.onend = () => { setRobotState('idle'); };
             window.speechSynthesis.speak(utterance);
         }
     }
 
     function appendMessage(text, sender) {
         let msgDiv = document.createElement('div');
-        msgDiv.style.padding = "10px 15px"; 
-        msgDiv.style.maxWidth = "80%"; 
-        msgDiv.style.fontSize = "0.95rem"; 
-        msgDiv.style.lineHeight = "1.5";
-        
+        msgDiv.style.padding = "10px 15px"; msgDiv.style.maxWidth = "80%"; msgDiv.style.fontSize = "0.95rem"; msgDiv.style.lineHeight = "1.5";
         if (sender === 'user') {
-            msgDiv.style.background = "#f1f5f9"; 
-            msgDiv.style.color = "#334155"; 
-            msgDiv.style.borderRadius = "15px 15px 15px 0";
-            msgDiv.style.alignSelf = "flex-end"; 
-            msgDiv.innerText = text;
+            msgDiv.style.background = "#f1f5f9"; msgDiv.style.color = "#334155"; msgDiv.style.borderRadius = "15px 15px 15px 0";
+            msgDiv.style.alignSelf = "flex-end"; msgDiv.innerText = text;
         } else {
-            msgDiv.classList.add('bot-msg-3d'); 
-            msgDiv.style.background = "#e0f2fe"; 
-            msgDiv.style.color = "#0369a1";
-            msgDiv.style.borderRadius = "15px 15px 0 15px"; 
-            msgDiv.style.alignSelf = "flex-start"; 
-            msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+            msgDiv.classList.add('bot-msg-3d'); msgDiv.style.background = "#e0f2fe"; msgDiv.style.color = "#0369a1";
+            msgDiv.style.borderRadius = "15px 15px 0 15px"; msgDiv.style.alignSelf = "flex-start"; msgDiv.innerHTML = text.replace(/\n/g, '<br>');
         }
-        
-        if (chatMessagesBox) { 
-            chatMessagesBox.appendChild(msgDiv); 
-            chatMessagesBox.scrollTop = chatMessagesBox.scrollHeight; 
-        }
+        if (chatMessagesBox) { chatMessagesBox.appendChild(msgDiv); chatMessagesBox.scrollTop = chatMessagesBox.scrollHeight; }
     }
 
     async function sendMessageToBot(messageText) {
-        if (!messageText) {
-            return;
-        }
-        
-        if (!currentTeacherId && !checkChatAttempts()) {
-            return;
-        }
-        
+        if (!messageText) return;
+        if (!currentTeacherId && !checkChatAttempts()) return;
         appendMessage(messageText, 'user');
-        
-        if (chatInput) {
-            chatInput.value = "";
-        }
+        if (chatInput) chatInput.value = "";
         
         let typingDiv = document.createElement('div');
-        typingDiv.style.background = "#e0f2fe"; 
-        typingDiv.style.color = "#0369a1"; 
-        typingDiv.style.padding = "10px 15px";
-        typingDiv.style.borderRadius = "15px 15px 0 15px"; 
-        typingDiv.style.alignSelf = "flex-start";
+        typingDiv.style.background = "#e0f2fe"; typingDiv.style.color = "#0369a1"; typingDiv.style.padding = "10px 15px";
+        typingDiv.style.borderRadius = "15px 15px 0 15px"; typingDiv.style.alignSelf = "flex-start";
         typingDiv.innerHTML = '<i class="fas fa-ellipsis-h fa-fade"></i> جاري التفكير...';
         typingDiv.id = "typing-indicator";
         
-        if (chatMessagesBox) { 
-            chatMessagesBox.appendChild(typingDiv); 
-            chatMessagesBox.scrollTop = chatMessagesBox.scrollHeight; 
-        }
+        if (chatMessagesBox) { chatMessagesBox.appendChild(typingDiv); chatMessagesBox.scrollTop = chatMessagesBox.scrollHeight; }
         
         let subjectVal = ui.subjectSelect.value || "مادة عامة";
         let gradeVal = ui.yearStage.options[ui.yearStage.selectedIndex] ? ui.yearStage.options[ui.yearStage.selectedIndex].text : "مرحلة عامة";
-        
         setRobotState('thinking');
         
         try {
             const chatServerPayload = {
-                action: 'chat',
-                subject: subjectVal,
-                year: gradeVal,
-                teacher_style: globalTeacherStyle,
-                lesson_context: globalLessonContext,
-                message: messageText
+                action: 'chat', subject: subjectVal, year: gradeVal, teacher_style: globalTeacherStyle,
+                lesson_context: globalLessonContext, message: messageText
             };
-
             const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify(chatServerPayload)
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chatServerPayload)
             });
-            
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(errData.error || "فشل الاتصال بخوادم فيرسل في الشات");
             }
-            
             const responseData = await response.json();
-            
-            if (responseData.error) {
-                throw new Error(responseData.error);
-            }
+            if (responseData.error) throw new Error(responseData.error);
 
             let aiReply = responseData.reply;
-            
             const typingIndicator = document.getElementById('typing-indicator');
-            if (typingIndicator) {
-                typingIndicator.remove();
-            }
+            if (typingIndicator) typingIndicator.remove();
             
-            setRobotState('idle');
-            appendMessage(aiReply, 'bot');
-            botSpeak(aiReply);
-            
-            if (!currentTeacherId) {
-                incrementChatAttempt();
-            }
+            setRobotState('idle'); appendMessage(aiReply, 'bot'); botSpeak(aiReply);
+            if (!currentTeacherId) incrementChatAttempt();
             
         } catch (error) {
             console.error("Chat Error:", error);
-            
             const typingIndicator = document.getElementById('typing-indicator');
-            if (typingIndicator) {
-                typingIndicator.remove();
-            }
-            
-            setRobotState('idle');
-            appendMessage("حدث خطأ: " + error.message, 'bot');
+            if (typingIndicator) typingIndicator.remove();
+            setRobotState('idle'); appendMessage("حدث خطأ: " + error.message, 'bot');
         }
     }
 
     if (chatSendBtn) {
-        chatSendBtn.addEventListener('click', () => { 
-            let textVal = chatInput ? chatInput.value.trim() : ""; 
-            sendMessageToBot(textVal); 
-        });
+        chatSendBtn.addEventListener('click', () => { let textVal = chatInput ? chatInput.value.trim() : ""; sendMessageToBot(textVal); });
     }
-    
     if (chatInput) {
-        chatInput.addEventListener('keypress', (event) => { 
-            if (event.key === 'Enter') {
-                sendMessageToBot(chatInput.value.trim()); 
-            }
-        });
+        chatInput.addEventListener('keypress', (event) => { if (event.key === 'Enter') { sendMessageToBot(chatInput.value.trim()); } });
     }
 
     if (chatMicBtn) {
         chatMicBtn.addEventListener('click', async () => {
-            if (!currentTeacherId && !checkChatAttempts()) {
-                return;
-            }
-            
+            if (!currentTeacherId && !checkChatAttempts()) return;
             if (recognition) {
                 try {
-                    isTeacherRecording = false; 
-                    recognition.start();
-                    chatMicBtn.classList.add('recording'); 
-                    chatInput.placeholder = "جاري الاستماع... تحدث الآن"; 
-                    setRobotState('listening');
-                } catch (e) {
-                    console.log("Microphone already started");
-                }
-            } else {
-                alert("متصفحك لا يدعم خاصية التعرف على الصوت.");
-            }
+                    isTeacherRecording = false; recognition.start();
+                    chatMicBtn.classList.add('recording'); chatInput.placeholder = "جاري الاستماع... تحدث الآن"; setRobotState('listening');
+                } catch (e) { console.log("Microphone already started"); }
+            } else { alert("متصفحك لا يدعم خاصية التعرف على الصوت."); }
         });
     }
 
     if (recognition) {
         recognition.onresult = async (event) => {
             const transcript = event.results[0][0].transcript;
-            
             if (isTeacherRecording) {
                 isTeacherRecording = false;
-                
                 if (teacherRecordBtn) { 
                     teacherRecordBtn.classList.remove('teacher-recording'); 
                     teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-alt"></i> تسجيل المعلم'; 
                 }
-                
                 const subject = ui.subjectSelect.value;
                 let yearText = ui.yearStage.options[ui.yearStage.selectedIndex].text;
                 const summaryDocId = (subject + '_' + yearText).replace(/\s+/g, '_');
-                
                 try {
-                    await db.collection("teacher_styles").doc(summaryDocId).set({ 
-                        styleText: transcript, 
-                        createdAt: new Date() 
-                    });
-                    
+                    await db.collection("teacher_styles").doc(summaryDocId).set({ styleText: transcript, createdAt: new Date() });
                     alert("تم حفظ بصمة شرحك بنجاح! سيتم دمجها مع الأنظمة العالمية للطلاب وتُحذف بعد 6 أشهر.");
                     globalTeacherStyle = transcript;
-                    
-                    if (!currentTeacherId) {
-                        incrementTeacherAttempt();
-                    }
-                } catch (e) { 
-                    console.error("Error saving teacher style:", e); 
-                }
-                
+                    if (!currentTeacherId) incrementTeacherAttempt();
+                } catch (e) { console.error("Error saving teacher style:", e); }
                 return;
             }
-            
-            chatInput.value = transcript; 
-            chatMicBtn.classList.remove('recording'); 
-            chatInput.placeholder = "اكتب سؤالك هنا...";
-            setRobotState('idle'); 
-            sendMessageToBot(transcript);
+            chatInput.value = transcript; chatMicBtn.classList.remove('recording'); chatInput.placeholder = "اكتب سؤالك هنا...";
+            setRobotState('idle'); sendMessageToBot(transcript);
         };
-
         recognition.onerror = (event) => {
             if (isTeacherRecording) {
                 isTeacherRecording = false;
-                
                 if (teacherRecordBtn) { 
-                    teacherRecordBtn.classList.remove('teacher-recording'); 
-                    teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-alt"></i> تسجيل المعلم'; 
+                    teacherRecordBtn.classList.remove('teacher-recording'); teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-alt"></i> تسجيل المعلم'; 
                 }
             } else {
-                chatMicBtn.classList.remove('recording'); 
-                chatInput.placeholder = "اكتب سؤالك هنا..."; 
-                setRobotState('idle');
+                chatMicBtn.classList.remove('recording'); chatInput.placeholder = "اكتب سؤالك هنا..."; setRobotState('idle');
             }
         };
-
         recognition.onend = () => {
             if (isTeacherRecording) {
                 isTeacherRecording = false;
-                
                 if (teacherRecordBtn) { 
-                    teacherRecordBtn.classList.remove('teacher-recording'); 
-                    teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-alt"></i> تسجيل المعلم'; 
+                    teacherRecordBtn.classList.remove('teacher-recording'); teacherRecordBtn.innerHTML = '<i class="fas fa-microphone-alt"></i> تسجيل المعلم'; 
                 }
-            } else { 
-                chatMicBtn.classList.remove('recording'); 
-                chatInput.placeholder = "اكتب سؤالك هنا..."; 
-            }
+            } else { chatMicBtn.classList.remove('recording'); chatInput.placeholder = "اكتب سؤالك هنا..."; }
         };
     }
 
