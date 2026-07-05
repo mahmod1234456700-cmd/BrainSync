@@ -14,7 +14,8 @@ CORS(app)
 # دالة لسحب المفتاح وقت الطلب لضمان قراءته بنجاح في بيئة Vercel
 def get_gemini_url():
     key = os.environ.get('GEMINI_API_KEY')
-    return f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+    # التعديل الوحيد تم في السطر القادم: تغيير gemini-1.5-flash إلى gemini-1.5-flash-latest
+    return f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={key}"
 
 @app.route('/api/analyze', methods=['POST', 'OPTIONS'])
 @app.route('/analyze', methods=['POST', 'OPTIONS']) # مسار احتياطي لمنع توهان Vercel
