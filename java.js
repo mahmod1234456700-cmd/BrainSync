@@ -19,7 +19,7 @@ const db = firebase.firestore();
 const storage = firebase.storage();
 
 let currentTeacherId = null;
-let selectedLessonFiles = []; 
+let selectedLessonFiles = []; // تم التعديل لدعم مصفوفة من الصور
 let filterSelectedSubject = "";
 let filterSelectedStage = "";
 let filterSelectedType = "";
@@ -73,8 +73,9 @@ document.getElementById('admin-login-btn').addEventListener('click', async () =>
             subscriptionEnd: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000) 
         }, { merge: true });
         
-        ui.teacherMode.checked = true;
-        ui.teacherMode.dispatchEvent(new Event('change'));
+        // التعديل هنا: استخدام المسار المباشر بدلاً من اختصار ui لتفادي خطأ undefined
+        document.getElementById('teacher-mode').checked = true;
+        document.getElementById('teacher-mode').dispatchEvent(new Event('change'));
         
         document.getElementById('verify-teacher-btn').innerText = "تم تفعيل الـ VIP مجاناً";
         document.getElementById('verify-teacher-btn').style.backgroundColor = "var(--success-color)";
@@ -84,7 +85,6 @@ document.getElementById('admin-login-btn').addEventListener('click', async () =>
         document.getElementById('admin-modal').style.display = 'none';
         
     } catch (error) {
-        // التعديل هنا: إظهار الخطأ التقني الحقيقي القادم من الفايربيز بدلاً من رسالة النت
         alert("خطأ من قاعدة بيانات الفايربيز: \n" + error.message);
     }
 });
