@@ -20,6 +20,7 @@ const storage = firebase.storage();
 
 let currentTeacherId = null;
 let isVIPLoggedIn = false; 
+let currentUserRole = "User"; // Admin, Teacher, Student
 let selectedLessonFiles = []; 
 let filterSelectedSubject = "";
 let filterSelectedStage = "";
@@ -30,46 +31,46 @@ let globalTeacherStyle = "";
 let isTeacherRecording = false;
 
 // ============================================================================
-// نظام الشاشة المنفصلة لتسجيل الدخول 
+// 1. نظام الشاشة المنفصلة تماماً لتسجيل الدخول (Login Overlay)
 // ============================================================================
 function createAuthScreen() {
     if (document.getElementById('auth-overlay')) return;
 
     const overlay = document.createElement('div');
     overlay.id = 'auth-overlay';
-    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:#f0f2f5; z-index:999999; display:none; flex-direction:column; align-items:center; justify-content:center; direction:rtl; overflow-y:auto; font-family: sans-serif;';
+    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:#f0f2f5; z-index:999999; display:none; flex-direction:column; align-items:center; justify-content:center; direction:rtl; overflow-y:auto; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
     
     overlay.innerHTML = `
-        <div style="width:100%; max-width:400px; padding:20px;">
+        <div style="width:100%; max-width:400px; padding:20px; box-sizing:border-box;">
             <h1 style="color:#1877f2; font-size:3rem; text-align:center; font-weight:bold; margin-bottom:5px; margin-top:0;">BrainSync</h1>
-            <p style="text-align:center; font-size:1.1rem; margin-bottom:25px; color:#1c1e21;">سجل دخولك الآن للتواصل مع أذكى منصة تعليمية.</p>
+            <p style="text-align:center; font-size:1.1rem; margin-bottom:25px; color:#1c1e21;">سجل دخولك للتواصل مع أذكى منصة تعليمية.</p>
             
-            <!-- قسم المستخدم العادي -->
+            <!-- قسم المستخدم العادي (طالب/معلم) -->
             <div id="auth-user-card" style="background:#fff; padding:25px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); text-align:center;">
-                <input type="tel" id="auth-phone" placeholder="رقم الموبايل (طالب أو معلم)" style="width:100%; padding:14px; font-size:1.1rem; border:1px solid #dddfe2; border-radius:6px; margin-bottom:15px; box-sizing:border-box; direction:rtl;">
-                <button id="auth-login-btn" style="width:100%; background:#1877f2; color:white; border:none; padding:12px; font-size:1.3rem; border-radius:6px; font-weight:bold; cursor:pointer; transition:0.2s;">تسجيل الدخول</button>
+                <input type="tel" id="auth-phone" placeholder="رقم الموبايل (لتسجيل الدخول)" style="width:100%; padding:14px; font-size:1.1rem; border:1px solid #dddfe2; border-radius:6px; margin-bottom:15px; box-sizing:border-box; direction:rtl;">
+                <button id="auth-login-btn" style="width:100%; background:#1877f2; color:white; border:none; padding:12px; font-size:1.3rem; border-radius:6px; font-weight:bold; cursor:pointer;">تسجيل الدخول</button>
                 <div style="border-bottom:1px solid #dadde1; margin:20px 0;"></div>
-                <button id="auth-show-admin-btn" style="width:100%; background:#42b72a; color:white; border:none; padding:10px; font-size:1.1rem; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:10px;">دخول كمسؤول VIP</button>
-                <button id="auth-close-btn" style="width:100%; background:#e4e6eb; color:#4b4f56; border:none; padding:10px; font-size:1rem; border-radius:6px; font-weight:bold; cursor:pointer;">إلغاء والعودة للمنصة</button>
+                <button id="auth-show-admin-btn" style="width:100%; background:#42b72a; color:white; border:none; padding:10px; font-size:1.1rem; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:10px;">دخول الإدارة (VIP)</button>
+                <button id="auth-close-btn" style="width:100%; background:#e4e6eb; color:#4b4f56; border:none; padding:10px; font-size:1rem; border-radius:6px; font-weight:bold; cursor:pointer;">العودة للمنصة</button>
             </div>
 
             <!-- قسم تفعيل الدفع -->
             <div id="auth-payment-card" style="background:#fff; padding:25px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); text-align:center; display:none;">
                 <h3 style="color:#b45309; margin-top:0;"><i class="fas fa-crown"></i> تفعيل الحساب</h3>
-                <p style="color:#606770; margin-bottom:15px;">الاشتراك المطلوب: <span id="auth-price-text" style="font-weight:bold; color:#1c1e21; font-size:1.2rem;"></span> جنيه</p>
-                <p style="font-size:0.9rem; line-height:1.6;">برجاء التحويل لـ 01067479440 ورفع الإيصال للتفعيل الفوري للـ VIP.</p>
+                <p style="color:#606770; margin-bottom:15px;">الاشتراك المطلوب: <span id="auth-price-text" style="font-weight:bold; color:#1c1e21; font-size:1.2rem;"></span> جنيه مصري</p>
+                <p style="font-size:0.9rem; line-height:1.6;">برجاء التحويل لفودافون كاش على الرقم <strong>01067479440</strong> ورفع صورة الإيصال ليتم فتح جميع مميزات المنصة فوراً.</p>
                 <input type="file" id="auth-receipt" accept="image/*" style="display:none;">
-                <button id="auth-upload-btn" style="width:100%; background:#42b72a; color:white; border:none; padding:12px; font-size:1.1rem; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:10px;"><i class="fas fa-camera"></i> إرفاق صورة الإيصال</button>
+                <button id="auth-upload-btn" style="width:100%; background:#42b72a; color:white; border:none; padding:12px; font-size:1.1rem; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:10px;"><i class="fas fa-camera"></i> إرفاق الإيصال للتفعيل</button>
                 <button id="auth-back-btn" style="width:100%; background:#e4e6eb; color:#4b4f56; border:none; padding:10px; font-size:1rem; border-radius:6px; font-weight:bold; cursor:pointer;">رجوع</button>
             </div>
 
             <!-- قسم الإدارة -->
             <div id="auth-admin-card" style="background:#fff; padding:25px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); text-align:center; display:none;">
-                <h3 style="color:#1877f2; margin-top:0;"><i class="fas fa-user-shield"></i> لوحة الإدارة</h3>
-                <input type="email" id="auth-admin-email" placeholder="البريد الإلكتروني المعتمد" style="width:100%; padding:14px; font-size:1rem; border:1px solid #dddfe2; border-radius:6px; margin-bottom:10px; box-sizing:border-box; direction:ltr;">
-                <input type="password" id="auth-admin-pass" placeholder="كلمة المرور الموحدة" style="width:100%; padding:14px; font-size:1rem; border:1px solid #dddfe2; border-radius:6px; margin-bottom:10px; box-sizing:border-box;">
-                <input type="tel" id="auth-admin-phone" placeholder="أدخل رقمك لربط الحساب" style="width:100%; padding:14px; font-size:1.1rem; border:1px solid #dddfe2; border-radius:6px; margin-bottom:15px; box-sizing:border-box;">
-                <button id="auth-admin-login-btn" style="width:100%; background:#42b72a; color:white; border:none; padding:12px; font-size:1.2rem; border-radius:6px; font-weight:bold; cursor:pointer;">دخول الإدارة</button>
+                <h3 style="color:#1877f2; margin-top:0;"><i class="fas fa-user-shield"></i> الإدارة المعتمدة</h3>
+                <input type="email" id="auth-admin-email" placeholder="البريد الإلكتروني المعتمد" value="admin1@brainsync.com" style="width:100%; padding:14px; font-size:1rem; border:1px solid #dddfe2; border-radius:6px; margin-bottom:10px; box-sizing:border-box; direction:ltr;">
+                <input type="password" id="auth-admin-pass" placeholder="كلمة المرور الموحدة" value="BrainSync2026" style="width:100%; padding:14px; font-size:1rem; border:1px solid #dddfe2; border-radius:6px; margin-bottom:10px; box-sizing:border-box; direction:ltr;">
+                <input type="tel" id="auth-admin-phone" placeholder="أدخل رقم موبايلك لربط الحساب" style="width:100%; padding:14px; font-size:1.1rem; border:1px solid #dddfe2; border-radius:6px; margin-bottom:15px; box-sizing:border-box; direction:rtl;">
+                <button id="auth-admin-login-btn" style="width:100%; background:#42b72a; color:white; border:none; padding:12px; font-size:1.2rem; border-radius:6px; font-weight:bold; cursor:pointer;">دخول المسؤول</button>
                 <div style="border-bottom:1px solid #dadde1; margin:20px 0;"></div>
                 <button id="auth-admin-back-btn" style="width:100%; background:#e4e6eb; color:#4b4f56; border:none; padding:10px; font-size:1rem; border-radius:6px; font-weight:bold; cursor:pointer;">الرجوع للطلاب</button>
             </div>
@@ -77,11 +78,9 @@ function createAuthScreen() {
     `;
     document.body.appendChild(overlay);
 
-    // ربط الأزرار الخاصة بالشاشة المنفصلة
-    document.getElementById('auth-close-btn').addEventListener('click', () => {
-        overlay.style.display = 'none';
-    });
-
+    // ربط الأزرار
+    document.getElementById('auth-close-btn').addEventListener('click', () => overlay.style.display = 'none');
+    
     document.getElementById('auth-show-admin-btn').addEventListener('click', () => {
         document.getElementById('auth-user-card').style.display = 'none';
         document.getElementById('auth-admin-card').style.display = 'block';
@@ -107,44 +106,33 @@ function createAuthScreen() {
     document.getElementById('auth-receipt').addEventListener('change', handleReceiptUpload);
 }
 
-function showAuthScreen() {
+function showAuthScreen(type = 'user') {
     createAuthScreen();
-    document.getElementById('auth-user-card').style.display = 'block';
-    document.getElementById('auth-admin-card').style.display = 'none';
+    document.getElementById('auth-user-card').style.display = (type === 'user') ? 'block' : 'none';
+    document.getElementById('auth-admin-card').style.display = (type === 'admin') ? 'block' : 'none';
     document.getElementById('auth-payment-card').style.display = 'none';
     document.getElementById('auth-overlay').style.display = 'flex';
 }
 
-// دالة لمعرفة الـ IP
+// ============================================================================
+// منطق تسجيل الدخول والتفعيل
+// ============================================================================
 async function fetchDeviceIP() {
-    try { 
-        const res = await fetch('https://api.ipify.org?format=json'); 
-        const data = await res.json(); 
-        return data.ip; 
-    } catch (error) { 
-        return "IP_UNKNOWN"; 
-    }
+    try { const res = await fetch('https://api.ipify.org?format=json'); const data = await res.json(); return data.ip; } 
+    catch (error) { return "IP_UNKNOWN"; }
 }
 
-// تسجيل دخول الطالب أو المعلم برقم الموبايل
 async function handleUserLogin() {
     const phone = document.getElementById('auth-phone').value.trim();
-    if (phone.length < 10) { 
-        alert("برجاء إدخال رقم موبايل صحيح."); 
-        return; 
-    }
+    if (phone.length < 10) { alert("برجاء إدخال رقم موبايل صحيح."); return; }
     
     const btn = document.getElementById('auth-login-btn');
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحقق...';
     
     currentTeacherId = phone;
     const currentIP = await fetchDeviceIP();
-    
-    let deviceFingerprint = localStorage.getItem("device_fingerprint");
-    if (!deviceFingerprint) {
-        deviceFingerprint = "DEV_" + Math.random().toString(36).substring(2, 15);
-        localStorage.setItem("device_fingerprint", deviceFingerprint);
-    }
+    let deviceFingerprint = localStorage.getItem("device_fingerprint") || ("DEV_" + Math.random().toString(36).substring(2, 15));
+    localStorage.setItem("device_fingerprint", deviceFingerprint);
 
     try {
         const teacherRef = db.collection("teachers").doc(currentTeacherId);
@@ -159,86 +147,52 @@ async function handleUserLogin() {
                 return;
             }
         } else {
-            teacherData = { 
-                name: "User_" + phone, 
-                phone: phone, 
-                registeredDeviceFingerprint: deviceFingerprint, 
-                monthsSubscribed: 0, 
-                status: "Free", 
-                role: "User" 
-            };
+            teacherData = { name: "User_" + phone, phone: phone, registeredDeviceFingerprint: deviceFingerprint, monthsSubscribed: 0, status: "Free", role: "User" };
             await teacherRef.set(teacherData);
         }
 
         await teacherRef.update({ lastKnownIP: currentIP });
-        
         const reqAmount = 50 + ((teacherData.monthsSubscribed || 0) * 50);
         document.getElementById('auth-price-text').innerText = reqAmount;
+        
         document.getElementById('auth-user-card').style.display = 'none';
         document.getElementById('auth-payment-card').style.display = 'block';
         btn.innerHTML = 'تسجيل الدخول';
         
     } catch (e) {
-        alert("حدث خطأ في الاتصال بقاعدة البيانات: " + e.message);
+        alert("خطأ: " + e.message);
         btn.innerHTML = 'تسجيل الدخول';
     }
 }
 
-// تسجيل دخول الإدارة بالأيميل والباسورد ورقم الموبايل
 async function handleAdminLogin() {
     const email = document.getElementById('auth-admin-email').value.trim().toLowerCase();
     const pass = document.getElementById('auth-admin-pass').value;
     const phone = document.getElementById('auth-admin-phone').value.trim();
     
-    const allowedEmails = [
-        "admin1@brainsync.com", 
-        "admin2@brainsync.com", 
-        "admin3@brainsync.com"
-    ];
-    
-    if (pass !== "BrainSync2026") { 
-        alert("كلمة المرور غير صحيحة!"); 
-        return; 
-    }
-    
-    if (!allowedEmails.includes(email)) { 
-        alert("هذا البريد غير مصرح له كإدارة!"); 
-        return; 
-    }
-    
-    if (phone.length < 10) { 
-        alert("برجاء إدخال رقم الموبايل الخاص بك لربط الحساب."); 
-        return; 
-    }
+    if (pass !== "BrainSync2026") { alert("كلمة المرور غير صحيحة!"); return; }
+    if (!["admin1@brainsync.com", "admin2@brainsync.com", "admin3@brainsync.com"].includes(email)) { alert("غير مصرح لك!"); return; }
+    if (phone.length < 10) { alert("أدخل رقم الموبايل الخاص بك لربط الحساب."); return; }
 
     const btn = document.getElementById('auth-admin-login-btn');
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التفعيل...';
-    
     currentTeacherId = phone;
 
     try {
         const teacherRef = db.collection("teachers").doc(currentTeacherId);
-        
         await teacherRef.set({
-            name: "Admin VIP", 
-            email: email, 
-            phone: phone, 
-            status: "VIP_Active", 
-            role: "Admin",
-            subscriptionStart: new Date(), 
-            subscriptionEnd: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000) 
+            name: "Admin VIP", email: email, phone: phone, status: "VIP_Active", role: "Admin",
+            subscriptionStart: new Date(), subscriptionEnd: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000) 
         }, { merge: true });
         
         loginSuccess(phone, 'Admin');
-        btn.innerHTML = 'دخول الإدارة';
-        
+        btn.innerHTML = 'دخول المسؤول';
     } catch (e) {
         alert("خطأ قاعدة البيانات: " + e.message);
-        btn.innerHTML = 'دخول الإدارة';
+        btn.innerHTML = 'دخول المسؤول';
     }
 }
 
-// رفع إيصال الدفع
 async function handleReceiptUpload(event) {
     const file = event.target.files[0];
     if (!file || !currentTeacherId) return;
@@ -248,8 +202,7 @@ async function handleReceiptUpload(event) {
     btn.style.pointerEvents = "none";
 
     try {
-        const storagePath = 'receipts/' + currentTeacherId + '_' + Date.now() + '_' + file.name;
-        const storageRef = storage.ref(storagePath);
+        const storageRef = storage.ref('receipts/' + currentTeacherId + '_' + Date.now() + '_' + file.name);
         const snapshot = await storageRef.put(file);
         const url = await snapshot.ref.getDownloadURL();
 
@@ -258,15 +211,12 @@ async function handleReceiptUpload(event) {
         const currentMonths = doc.data().monthsSubscribed || 0;
 
         await teacherRef.update({
-            status: "VIP_Active", 
-            subscriptionStart: new Date(), 
+            status: "VIP_Active", subscriptionStart: new Date(), 
             subscriptionEnd: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)),
-            lastPaymentReceipt: url, 
-            monthsSubscribed: currentMonths + 1 
+            lastPaymentReceipt: url, monthsSubscribed: currentMonths + 1 
         });
 
         loginSuccess(currentTeacherId, doc.data().role || "User");
-        
     } catch (err) {
         alert("حدث خطأ أثناء الرفع: " + err.message);
         btn.innerHTML = '<i class="fas fa-camera"></i> إرفاق صورة الإيصال';
@@ -287,34 +237,31 @@ function showToast(message, bgColor = "#059669") {
     }
     toast.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
     toast.style.background = bgColor;
-    
     setTimeout(() => { toast.style.top = '20px'; }, 100);
     setTimeout(() => { toast.style.top = '-100px'; }, 3000);
 }
 
 function loginSuccess(phone, role) {
     isVIPLoggedIn = true;
+    currentUserRole = role;
     document.getElementById('auth-overlay').style.display = 'none';
     
-    // إخفاء قسم التسجيل القديم من الشاشة لتنظيف الواجهة
+    // إخفاء القطاع القديم للمعلم في HTML
     const oldTeacherSec = document.querySelector('.teacher-section');
     if (oldTeacherSec) oldTeacherSec.style.display = 'none';
 
     showToast("تم تسجيل الدخول بنجاح!");
-    buildDynamicUserMenu(role);
+    buildDynamicUserMenu(phone, role);
 }
 
 function logout() {
     isVIPLoggedIn = false;
     currentTeacherId = null;
+    currentUserRole = "User";
     
     // إرجاع قسم التسجيل القديم للواجهة
     const oldTeacherSec = document.querySelector('.teacher-section');
-    if (oldTeacherSec) {
-        oldTeacherSec.style.display = 'block';
-        const checkbox = document.getElementById('teacher-mode');
-        if (checkbox) checkbox.checked = false;
-    }
+    if (oldTeacherSec) oldTeacherSec.style.display = 'block';
     
     const menu = document.getElementById('dynamic-user-menu');
     if (menu) menu.remove();
@@ -322,25 +269,25 @@ function logout() {
     showToast("تم تسجيل الخروج", "#ef4444");
 }
 
-function buildDynamicUserMenu(role) {
+function buildDynamicUserMenu(phone, role) {
     if (document.getElementById('dynamic-user-menu')) return;
     
     const menu = document.createElement('div');
     menu.id = 'dynamic-user-menu';
     menu.style.cssText = 'background:#f8fafc; padding:20px; border-radius:10px; border:2px solid #3b82f6; margin-top:20px; margin-bottom:20px; text-align:center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);';
     
-    let html = `<h3 style="color:#0f172a; margin-top:0;"><i class="fas fa-user-check"></i> الحساب مفعل (VIP)</h3>`;
+    let html = `
+        <h3 style="color:#0f172a; margin-top:0;"><i class="fas fa-user-check"></i> الحساب مفعل (VIP)</h3>
+        <p style="color:#64748b; font-weight:bold; margin-bottom:15px;">الرقم: <span dir="ltr">${phone}</span></p>
+    `;
     
-    // زرار التسجيل للمعلم
     html += `<button id="btn-dyn-record" class="btn action-btn" style="background:#8b5cf6; margin-bottom:10px; width:100%;"><i class="fas fa-microphone-alt"></i> أداة تسجيل أسلوب المعلم</button>`;
     
-    // زرار الداش بورد للأدمن فقط
     if (role === 'Admin') {
-        html += `<button id="btn-dyn-dash" class="btn action-btn" style="background:#1e293b; margin-bottom:10px; width:100%;"><i class="fas fa-users-cog"></i> لوحة تحكم الاشتراكات والأرقام</button>`;
+        html += `<button id="btn-dyn-dash" class="btn action-btn" style="background:#1e293b; margin-bottom:10px; width:100%;"><i class="fas fa-users-cog"></i> الداش بورد (Dashboard)</button>`;
     }
     
-    // زرار الخروج
-    html += `<button id="btn-dyn-logout" class="btn" style="background:#ef4444; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%; margin-top:10px;"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</button>`;
+    html += `<button id="btn-dyn-logout" class="btn" style="background:#ef4444; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%; margin-top:10px;"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</button>`;
     
     menu.innerHTML = html;
     
@@ -349,7 +296,6 @@ function buildDynamicUserMenu(role) {
         processBtn.parentNode.insertBefore(menu, processBtn);
     }
 
-    // تفعيل الأزرار الجديدة
     document.getElementById('btn-dyn-logout').addEventListener('click', logout);
     document.getElementById('btn-dyn-record').addEventListener('click', startTeacherRecordingAction);
     
@@ -363,20 +309,11 @@ function buildDynamicUserMenu(role) {
 // ============================================================================
 async function loadAndShowDashboard() {
     let container = document.createElement('div');
-    container.style.position = "fixed";
-    container.style.top = "5%";
-    container.style.left = "50%";
-    container.style.transform = "translateX(-50%)";
-    container.style.width = "95%";
-    container.style.maxWidth = "800px";
-    container.style.height = "90%";
-    container.style.backgroundColor = "#ffffff";
-    container.style.zIndex = "999999";
-    container.style.borderRadius = "15px";
-    container.style.boxShadow = "0 15px 40px rgba(0,0,0,0.5)";
-    container.style.padding = "20px";
-    container.style.overflowY = "auto";
-    container.style.direction = "rtl";
+    container.style.position = "fixed"; container.style.top = "5%"; container.style.left = "50%";
+    container.style.transform = "translateX(-50%)"; container.style.width = "95%"; container.style.maxWidth = "800px";
+    container.style.height = "90%"; container.style.backgroundColor = "#ffffff"; container.style.zIndex = "999999";
+    container.style.borderRadius = "15px"; container.style.boxShadow = "0 15px 40px rgba(0,0,0,0.5)";
+    container.style.padding = "20px"; container.style.overflowY = "auto"; container.style.direction = "rtl";
 
     container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #3b82f6; padding-bottom:10px; margin-bottom:15px;">
@@ -387,10 +324,7 @@ async function loadAndShowDashboard() {
     `;
 
     document.body.appendChild(container);
-    
-    document.getElementById('close-dash-btn').addEventListener('click', () => {
-        container.remove();
-    });
+    document.getElementById('close-dash-btn').addEventListener('click', () => { container.remove(); });
 
     try {
         const snapshot = await db.collection("teachers").get();
@@ -403,28 +337,17 @@ async function loadAndShowDashboard() {
                     <th style="padding:10px;">تاريخ التفعيل</th>
                 </tr>
         `;
-        
         let count = 0;
         snapshot.forEach(doc => {
             count++;
             let data = doc.data();
             let statusColor = data.status === "VIP_Active" ? "#059669" : "#ef4444";
-            let role = data.role === "Admin" ? "إدارة" : "طالب/معلم";
+            let roleName = data.role === "Admin" ? "إدارة" : "طالب/معلم";
             let subDate = data.subscriptionStart ? new Date(data.subscriptionStart.seconds * 1000 || data.subscriptionStart).toLocaleDateString('ar-EG') : "غير محدد";
-            
-            html += `
-                <tr>
-                    <td style="padding:10px; font-weight:bold;" dir="ltr">${doc.id}</td>
-                    <td style="padding:10px;">${role}</td>
-                    <td style="padding:10px; color:${statusColor}; font-weight:bold;">${data.status}</td>
-                    <td style="padding:10px;">${subDate}</td>
-                </tr>
-            `;
+            html += `<tr><td style="padding:10px; font-weight:bold;" dir="ltr">${doc.id}</td><td style="padding:10px;">${roleName}</td><td style="padding:10px; color:${statusColor}; font-weight:bold;">${data.status}</td><td style="padding:10px;">${subDate}</td></tr>`;
         });
-        
         html += `</table><p style="margin-top:15px; color:#64748b; font-weight:bold;">إجمالي الأرقام المسجلة في المنصة: ${count}</p>`;
         document.getElementById('dash-content').innerHTML = html;
-        
     } catch (e) {
         document.getElementById('dash-content').innerHTML = `<p style="color:red;">حدث خطأ في جلب البيانات: ${e.message}</p>`;
     }
@@ -466,11 +389,10 @@ function incrementChatAttempt() {
 }
 
 // ============================================================================
-// تحميل المستند وقاعدة بيانات المواد (الأساسية)
+// تحميل المستند وقاعدة بيانات المواد، وربط كافة عناصر الـ UI
 // ============================================================================
 document.addEventListener('DOMContentLoaded', () => {
     
-    // بناء شاشة تسجيل الدخول المنفصلة بمجرد تحميل الصفحة
     createAuthScreen();
 
     // ربط الزرار القديم في الواجهة عشان يفتح الشاشة الجديدة المنفصلة
@@ -484,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ربط الدخول السري للأدمن على كلمة BrainSync القديمة
+    // ربط الدخول السري للأدمن على كلمة BrainSync القديمة (دبل كليك)
     const secretTrigger = document.getElementById('secret-trigger');
     if (secretTrigger) {
         const newTrigger = secretTrigger.cloneNode(true);
@@ -540,6 +462,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return normalized.toLowerCase(); 
     }
 
+    // ==========================================
+    // إرجاع أحداث البحث والقوائم بكامل وظائفها
+    // ==========================================
     ui.searchInput.addEventListener('input', (event) => {
         const query = normalizeText(event.target.value.trim());
         ui.searchResults.innerHTML = '';
@@ -551,7 +476,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         let matchedSubjects = [];
-        
         for (const [pathKey, subjects] of Object.entries(subjectsDB)) {
             subjects.forEach((subject) => {
                 if (normalizeText(subject).includes(query) && !matchedSubjects.includes(subject)) {
@@ -672,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             ui.pathDisplay.innerHTML = '<i class="fas fa-map-marker-alt"></i> مسار المادة المحدد: <br> ' + path;
             ui.pathDisplay.style.display = 'block';
-        } catch (error) { }
+        } catch (error) {}
     }
 
     ui.mainStage.addEventListener('change', (event) => {
@@ -697,18 +621,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ui.subStage.addEventListener('change', (event) => {
         if (event.target.value) {
             currentTrackPath = ui.mainStage.value;
+            if (!currentTrackPath.includes('high_') && currentTrackPath !== 'diploma') currentTrackPath += '_';
+            else if (currentTrackPath === 'diploma') currentTrackPath += '_';
             
-            if (!currentTrackPath.includes('high_') && currentTrackPath !== 'diploma') {
-                currentTrackPath += '_';
-            } else if (currentTrackPath === 'diploma') {
-                currentTrackPath += '_';
-            }
-            
-            if (ui.mainStage.value.includes('high')) {
-                currentTrackPath = ui.mainStage.value + '_' + event.target.value;
-            } else {
-                currentTrackPath += event.target.value;
-            }
+            if (ui.mainStage.value.includes('high')) currentTrackPath = ui.mainStage.value + '_' + event.target.value;
+            else currentTrackPath += event.target.value;
             
             let limit = (ui.mainStage.value === 'primary') ? 6 : 3;
             populateYears(1, limit, ui.mainStage.value.split('_')[0]);
@@ -748,15 +665,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '<option value="">-- اختر الصف الدراسي --</option>';
         for (let i = start; i <= end; i++) { 
             html += '<option value="' + i + '">الصف ' + getOrdinal(i);
-            if (stageType === 'primary') {
-                html += ' الابتدائي';
-            } else if (stageType === 'prep') {
-                html += ' الإعدادي';
-            } else if (stageType === 'high') {
-                html += ' الثانوي';
-            } else if (stageType === 'diploma') {
-                html += ' (دبلوم)';
-            }
+            if (stageType === 'primary') html += ' الابتدائي';
+            else if (stageType === 'prep') html += ' الإعدادي';
+            else if (stageType === 'high') html += ' الثانوي';
+            else if (stageType === 'diploma') html += ' (دبلوم)';
             html += '</option>';
         }
         ui.yearStage.innerHTML = html; 
@@ -823,6 +735,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.subjectSelect.dispatchEvent(new Event('change'));
     }
 
+    // =========================================================
+    // التعديل 1: رفع الحد الأقصى إلى 100 صورة
+    // =========================================================
     const lessonUploadBox = document.getElementById('lesson-upload-box');
     const lessonImageInput = document.getElementById('lesson-image');
     
@@ -832,8 +747,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     lessonImageInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
-            if (event.target.files.length > 5) {
-                alert("عفواً، أقصى عدد مسموح به هو 5 صور في المرة الواحدة لحماية سرعة الإنترنت.");
+            // الحد الأقصى 100 صورة
+            if (event.target.files.length > 100) {
+                alert("عفواً، أقصى عدد مسموح به هو 100 صورة في المرة الواحدة.");
                 event.target.value = ""; 
                 return;
             }
@@ -871,7 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================================
-    // إرسال الطلب للسيرفر وإنشاء المحتوى
+    // إرسال الطلب للسيرفر والتلخيص
     // ============================================================================
     const processBtn = document.getElementById('process-btn');
     
@@ -1064,7 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================================
-    // دوال عرض المخرجات وتوليد ملفات الطباعة
+    // دوال عرض المخرجات وتوليد ملفات الـ PDF 
     // ============================================================================
     function showOutput(serverData, subjectName) {
         document.getElementById('ai-output-container').style.display = 'block';
@@ -1085,7 +1001,6 @@ document.addEventListener('DOMContentLoaded', () => {
         resultHtml += '<button id="real-download-btn" class="download-pdf-btn"><i class="fas fa-file-pdf"></i> تحميل التلخيص كملف PDF احترافي</button></div>';
         
         document.getElementById('ai-response-text').innerHTML = resultHtml;
-        
         globalLessonContext = JSON.stringify(serverData.qa_data);
         
         document.getElementById('real-download-btn').addEventListener('click', () => { 
@@ -1158,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================================================
-    // برمجة الروبوت التفاعلي والشات
+    // برمجة الشات والميكروفون وأداة تسجيل المعلم
     // ============================================================================
     const chatInput = document.getElementById('chat-input-field');
     const chatSendBtn = document.getElementById('chat-send-btn');
@@ -1175,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition.interimResults = false;
     }
 
-    // دالة المعلم التي سيتم استدعاؤها من الزر الديناميكي
+    // دالة تسجيل أسلوب المعلم (مربوطة بالزرار الديناميكي في قائمة VIP)
     window.startTeacherRecordingAction = function() {
         if (!isVIPLoggedIn) {
             showAuthScreen('user');
@@ -1186,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let yearText = ui.yearStage.options[ui.yearStage.selectedIndex] ? ui.yearStage.options[ui.yearStage.selectedIndex].text : "";
         
         if (!subject || !yearText) { 
-            alert("يرجى تحديد المرحلة والصف والمادة أولاً."); 
+            alert("يرجى تحديد المرحلة والصف والمادة أولاً من القوائم."); 
             return; 
         }
         
@@ -1225,13 +1140,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ar-EG';
             
-            utterance.onstart = () => { 
-                setRobotState('speaking'); 
-            };
-            
-            utterance.onend = () => { 
-                setRobotState('idle'); 
-            };
+            utterance.onstart = () => { setRobotState('speaking'); };
+            utterance.onend = () => { setRobotState('idle'); };
             
             window.speechSynthesis.speak(utterance);
         }
@@ -1339,12 +1249,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
         } catch (error) {
             console.error("Chat Error:", error);
-            
             const typingIndicator = document.getElementById('typing-indicator');
-            if (typingIndicator) {
-                typingIndicator.remove();
-            }
-            
+            if (typingIndicator) typingIndicator.remove();
             setRobotState('idle');
             appendMessage("حدث خطأ: " + error.message, 'bot');
         }
@@ -1410,7 +1316,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (e) { 
                     console.error("Error saving teacher style:", e); 
                 }
-                
                 return;
             }
             
