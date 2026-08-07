@@ -72,11 +72,13 @@ def analyze():
 
         response = requests.post(get_gemini_url(), headers={'Content-Type': 'application/json'}, json=payload)
         response_data = response.json()
+        print('GEMINI RESPONSE:', response_data)
         
         if 'candidates' not in response_data:
              return jsonify({"error": f"خطأ من جوجل: {str(response_data)}"}), 500
              
         ai_response_text = response_data['candidates'][0]['content']['parts'][0]['text']
+        print('RAW AI:', ai_response_text[:1000])
         clean_json = ai_response_text.replace("```json", "").replace("```", "").strip()
         
         # تنظيف الفواصل الزائدة (Trailing Commas) تلقائياً لمنع خطأ Expecting property name enclosed in double quotes
@@ -88,7 +90,9 @@ def analyze():
             try:
                 result_json = json.loads(clean_json)
                 break
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                print('JSON ERROR:', e)
+                print(clean_json[:1000])
         
                 if attempt == MAX_RETRIES - 1:
                     return jsonify({
