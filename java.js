@@ -66,7 +66,7 @@ function createAuthScreen() {
             <div id="auth-user-card" style="padding:30px 25px; text-align:center;">
                 <h3 style="color:#1e293b; margin-top:0; margin-bottom:8px; font-size:1.3rem;">تسجيل الدخول للمنصة</h3>
                 <p style="color:#64748b; font-size:0.95rem; margin-bottom:20px;">أدخل رقم موبايلك للوصول إلى الملخصات وبنوك الأسئلة</p>
-                <input type="tel" id="auth-phone" placeholder="رقم الموبايل (مثال: 010xxxxxxxx)" style="width:100%; padding:15px; font-size:1.1rem; border:2px solid #e2e8f0; border-radius:10px; margin-bottom:18px; box-sizing:border-box; direction:rtl; text-align:center; font-weight:bold;">
+                <input type="tel" id="auth-phone" autocomplete="off" placeholder="رقم الموبايل (مثال: 010xxxxxxxx)" style="width:100%; padding:15px; font-size:1.1rem; border:2px solid #e2e8f0; border-radius:10px; margin-bottom:18px; box-sizing:border-box; direction:rtl; text-align:center; font-weight:bold;">
                 <button id="auth-login-btn" style="width:100%; background:#2563eb; color:white; border:none; padding:15px; font-size:1.15rem; border-radius:10px; font-weight:bold; cursor:pointer; transition:0.3s; box-shadow:0 4px 12px rgba(37,99,235,0.3);"><i class="fas fa-sign-in-alt"></i> دخول الفوري</button>
                 <div style="border-bottom:1px solid #e2e8f0; margin:22px 0;"></div>
                 <button id="auth-close-btn" style="width:100%; background:#f1f5f9; color:#475569; border:none; padding:12px; font-size:0.95rem; border-radius:8px; font-weight:bold; cursor:pointer;">تصفح المنصة كزائر (محاولات مجانية محدودة)</button>
@@ -108,6 +108,11 @@ function createAuthScreen() {
 
 function showAuthScreen() {
     createAuthScreen();
+    // تفريغ خانة رقم الموبايل تلقائياً عند فتح الشاشة لمنع ظهور الرقم السابق
+    const phoneInput = document.getElementById('auth-phone');
+    if (phoneInput) {
+        phoneInput.value = '';
+    }
     document.getElementById('auth-user-card').style.display = 'block';
     document.getElementById('auth-payment-card').style.display = 'none';
     document.getElementById('auth-overlay').style.display = 'flex';
@@ -724,7 +729,7 @@ async function renderActiveDashTab() {
     }
 }
 
-// جلب جدول إدارة الحسابات (مع زر الحذف ودعم ما لا نهاية)
+// جلب جدول إدارة الحسابات
 async function loadDashboardTableData() {
     const tableBody = document.getElementById('dash-table-body');
     if (!tableBody) return;
@@ -1090,6 +1095,12 @@ document.addEventListener('DOMContentLoaded', () => {
         extractionSettings: document.getElementById('extraction-settings')
     };
 
+    // تفريغ خانة البحث عن اسم المادة ومنع الحفظ التلقائي
+    if (ui.searchInput) {
+        ui.searchInput.value = '';
+        ui.searchInput.setAttribute('autocomplete', 'off');
+    }
+
     function normalizeText(text) { 
         let normalized = text.replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي");
         return normalized.toLowerCase(); 
@@ -1375,8 +1386,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     lessonImageInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
-            if (event.target.files.length > 20) {
-                alert("عفواً، أقصى عدد مسموح به هو 20 صورة فقط في المرة الواحدة! يرجى اختيار 20 صورة أو أقل.");
+            // التعديل: الحد الأقصى 10 صور فقط
+            if (event.target.files.length > 10) {
+                alert("عفواً، أقصى عدد مسموح به هو 10 صور فقط في المرة الواحدة! يرجى اختيار 10 صور أو أقل.");
                 event.target.value = ""; 
                 selectedLessonFiles = [];
                 return;
@@ -1442,8 +1454,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; 
             }
 
-            if (selectedLessonFiles.length > 20) {
-                alert("عفواً، أقصى عدد مسموح به هو 20 صورة فقط في المرة الواحدة!");
+            // التعديل: منع معالجة أكثر من 10 صور فقط
+            if (selectedLessonFiles.length > 10) {
+                alert("عفواً، أقصى عدد مسموح به هو 10 صور فقط في المرة الواحدة!");
                 return;
             }
 
