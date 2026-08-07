@@ -3,6 +3,7 @@
 # ============================================================================
 
 import os
+import re
 import json
 import requests
 from flask import Flask, request, jsonify
@@ -42,7 +43,8 @@ def analyze():
         prompt += "2. قسم الصح والخطأ (TF): يجب استخراج من 6 إلى 7 أسئلة فقط. التوزيع الإجباري للصعوبة داخل هذا القسم: أسئلة (سهلة)، ثم أسئلة (متوسطة)، ثم بقية الأسئلة (معقدة). كتابة العبارة في q، والحكم عليها (صحيحة / خطأ) في a، والتفسير العلمي الوافي والتفصيلي لسبب الصح أو الخطأ في reason.\n"
         prompt += "3. قسم الأسئلة المقالية (Essay): يجب استخراج من 6 إلى 7 أسئلة فقط. التوزيع الإجباري للصعوبة داخل هذا القسم: أسئلة (سهلة)، ثم أسئلة (متوسطة)، ثم بقية الأسئلة (معقدة). تقديم إجابة نموذجية وافية ومفصلة جداً تناسب امتحانات الثانوية العامة في a، وشرح إضافي وافٍ في reason.\n"
         prompt += "4. الحد الأدنى الإجمالي للأسئلة في الملف هو 18 سؤالاً على الأقل (6 لكل قسم)، والحد الأقصى 21 سؤالاً (7 لكل قسم) ليكون الإجمالي في حدود 20 سؤالاً. إياك أن تتخطى هذا العدد لضمان إغلاق تنسيق الـ JSON بشكل صحيح بالكامل.\n"
-        prompt += "5. اكتب فقرة واحدة (من 3 إلى 4 أسطر) في brief_explanation تلخص الدرس بأسلوب مشوق للروبوت.\n\n"
+        prompt += "5. اكتب فقرة واحدة (من 3 إلى 4 أسطر) في brief_explanation تلخص الدرس بأسلوب مشوق للروبوت.\n"
+        prompt += "6. تنبيه تقني حرج: تأكد من أن الرد يتبع تنسيق JSON سليم 100%، وإياك وضع فاصلة زائدة (Trailing Comma) في آخر العناصر.\n\n"
         prompt += "يجب أن يكون الرد مصفوفة (JSON Object) متوافقة تماماً مع هذا التنسيق وبدون أي نصوص إضافية:\n"
         prompt += "{\n"
         prompt += "  \"brief_explanation\": \"اكتب الشرح المبسط هنا\",\n"
@@ -59,13 +61,12 @@ def analyze():
         for img_b64 in images_base64:
             parts.append({"inlineData": {"mimeType": mime_type, "data": img_b64}})
 
-        # رفع سقف التوكينز للحد الأقصى لضمان عدم قطع الإجابة
         payload = {
             "contents": [{"parts": parts}],
             "generationConfig": {
                 "responseMimeType": "application/json",
                 "maxOutputTokens": 8192,
-                "temperature": 0.4
+                "temperature": 0.3
             }
         }
 
@@ -77,6 +78,9 @@ def analyze():
              
         ai_response_text = response_data['candidates'][0]['content']['parts'][0]['text']
         clean_json = ai_response_text.replace("```json", "").replace("```", "").strip()
+        
+        # تنظيف الفواصل الزائدة (Trailing Commas) تلقائياً لمنع خطأ Expecting property name enclosed in double quotes
+        clean_json = re.sub(r',\s*([\]}])', r'\1', clean_json)
         
         result_json = json.loads(clean_json)
         qa_array = result_json.get("qa_list", [])
