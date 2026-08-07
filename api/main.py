@@ -5,6 +5,7 @@
 import os
 import re
 import json
+import time
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -35,23 +36,27 @@ def analyze():
         grade_year = data.get('year')
         mime_type = data.get('mime_type', 'image/jpeg')
 
-        # هندسة البرومبت الصارم لفرض أعداد الأسئلة الآمنة جداً (إجمالي 20 سؤال تقريباً = 6-7 لكل قسم) لمنع قطع الـ JSON نهائياً
+        # إنشاء رقم جلسة فريد لضمان عدم تكرار الأسئلة في كل طلب جديد
+        session_id = int(time.time())
+
+        # هندسة البرومبت الصارم (5 أسئلة لكل قسم = 15 إجمالي متدرجة الصعوبة + ذكر السبب + عدم التكرار)
         prompt = "أنت الآن 'رئيس لجنة وضع الامتحانات' و'خبير المناهج التعليمية الأول' في منصة BrainSync.\n"
-        prompt += "الهدف: تحليل محتوى الصور المرفوعة بدقة متناهية واستخراج بنك أسئلة شامل ومتدرج الصعوبة لتدريب الطالب، مع كتابة شرح مبسط للدرس.\n\n"
+        prompt += f"رقم الجلسة الفريد: {session_id} (تنبيه إجباري: قم بتوليد أسئلة جديدة ومختلفة تماماً عن أي محاولة سابقة لنفس الدرس).\n"
+        prompt += "الهدف: تحليل محتوى الصور المرفوعة بدقة متناهية واستخراج بنك أسئلة شامل ومتدرج الصعوبة (سهل، متوسط، معقد)، مع ذكر الأسباب العلمية الواضحة والتفصيلية لكل إجابة.\n\n"
         prompt += "قواعد وأوامر صارمة وإجبارية لا تقبل الاستثناء أو الاختصار أبداً:\n"
-        prompt += "1. قسم الاختيار من متعدد (MCQ): يجب استخراج من 6 إلى 7 أسئلة فقط. التوزيع الإجباري للصعوبة داخل هذا القسم: أسئلة (سهلة)، ثم أسئلة (متوسطة)، ثم بقية الأسئلة (معقدة وتتطلب تفكيراً علياً). كل سؤال يحتوي على 4 اختيارات في options، والإجابة الصحيحة في a، والشرح العلمي الوافي والتفصيلي في reason.\n"
-        prompt += "2. قسم الصح والخطأ (TF): يجب استخراج من 6 إلى 7 أسئلة فقط. التوزيع الإجباري للصعوبة داخل هذا القسم: أسئلة (سهلة)، ثم أسئلة (متوسطة)، ثم بقية الأسئلة (معقدة). كتابة العبارة في q، والحكم عليها (صحيحة / خطأ) في a، والتفسير العلمي الوافي والتفصيلي لسبب الصح أو الخطأ في reason.\n"
-        prompt += "3. قسم الأسئلة المقالية (Essay): يجب استخراج من 6 إلى 7 أسئلة فقط. التوزيع الإجباري للصعوبة داخل هذا القسم: أسئلة (سهلة)، ثم أسئلة (متوسطة)، ثم بقية الأسئلة (معقدة). تقديم إجابة نموذجية وافية ومفصلة جداً تناسب امتحانات الثانوية العامة في a، وشرح إضافي وافٍ في reason.\n"
-        prompt += "4. الحد الأدنى الإجمالي للأسئلة في الملف هو 18 سؤالاً على الأقل (6 لكل قسم)، والحد الأقصى 21 سؤالاً (7 لكل قسم) ليكون الإجمالي في حدود 20 سؤالاً. إياك أن تتخطى هذا العدد لضمان إغلاق تنسيق الـ JSON بشكل صحيح بالكامل.\n"
+        prompt += "1. قسم الاختيار من متعدد (MCQ): استخرج 5 أسئلة فقط متدرجة الصعوبة (سهل، متوسط، معقد). كل سؤال يحتوي على 4 اختيارات في options، والإجابة الصحيحة في a. في خانة reason اذكر السبب العلمي الواضح والتفصيلي لاختيار هذه الإجابة تحديداً (بناءً على ماذا تم اختيارها ولماذا باقي الاختيارات غلط، ولماذا تم اختيار هذا السؤال).\n"
+        prompt += "2. قسم الصح والخطأ (TF): استخرج 5 أسئلة فقط متدرجة الصعوبة (سهل، متوسط، معقد). كتابة العبارة في q، والحكم عليها (صحيحة / خطأ) في a. في خانة reason اذكر السبب العلمي الدقيق: لو الإجابة صحيحة وضح هي صح ليه، ولو الإجابة خطأ وضح هي غلط ليه وما هو التصحيح.\n"
+        prompt += "3. قسم الأسئلة المقالية (Essay): استخرج 5 أسئلة فقط مقالية مركزة ومتدرجة الصعوبة (سهل، متوسط، معقد) مع إجابة نموذجية وافية في a وتفسير وافٍ في reason.\n"
+        prompt += "4. الحد الأدنى والأقصى الإجمالي للأسئلة هو 15 سؤالاً فقط (5 لكل قسم). إياك أن تتخطى هذا العدد لضمان إغلاق تنسيق الـ JSON بشكل صحيح بالكامل وبدون أي قطع.\n"
         prompt += "5. اكتب فقرة واحدة (من 3 إلى 4 أسطر) في brief_explanation تلخص الدرس بأسلوب مشوق للروبوت.\n"
         prompt += "6. تنبيه تقني حرج: تأكد من أن الرد يتبع تنسيق JSON سليم 100%، وإياك وضع فاصلة زائدة (Trailing Comma) في آخر العناصر.\n\n"
         prompt += "يجب أن يكون الرد مصفوفة (JSON Object) متوافقة تماماً مع هذا التنسيق وبدون أي نصوص إضافية:\n"
         prompt += "{\n"
         prompt += "  \"brief_explanation\": \"اكتب الشرح المبسط هنا\",\n"
         prompt += "  \"qa_list\": [\n"
-        prompt += "    {\"type\": \"MCQ\", \"q\": \"نص السؤال\", \"options\": [\"أ\", \"ب\", \"ج\", \"د\"], \"a\": \"الإجابة الصحيحة\", \"reason\": \"الشرح العلمي الوافي والتفصيلي\"},\n"
-        prompt += "    {\"type\": \"TF\", \"q\": \"نص العبارة\", \"a\": \"صحيحة أو خطأ\", \"reason\": \"الشرح العلمي الوافي والتفصيلي\"},\n"
-        prompt += "    {\"type\": \"Essay\", \"q\": \"نص السؤال\", \"a\": \"الإجابة النموذجية المفصلة\", \"reason\": \"الشرح العلمي الوافي والتفصيلي\"}\n"
+        prompt += "    {\"type\": \"MCQ\", \"q\": \"نص السؤال\", \"options\": [\"أ\", \"ب\", \"ج\", \"د\"], \"a\": \"الإجابة الصحيحة\", \"reason\": \"السبب العلمي لاختيار هذه الإجابة تحديداً وبناءً على ماذا تم اختيارها ولماذا الباقي خطأ\"},\n"
+        prompt += "    {\"type\": \"TF\", \"q\": \"نص العبارة\", \"a\": \"صحيحة أو خطأ\", \"reason\": \"هي صح ليه علمياً، أو غلط ليه وإيه التصحيح\"},\n"
+        prompt += "    {\"type\": \"Essay\", \"q\": \"نص السؤال المقالي\", \"a\": \"الإجابة النموذجية المفصلة\", \"reason\": \"الشرح العلمي الوافي\"}\n"
         prompt += "  ]\n"
         prompt += "}\n\n"
         prompt += f"المادة: {subject_title}\n"
@@ -66,64 +71,29 @@ def analyze():
             "generationConfig": {
                 "responseMimeType": "application/json",
                 "maxOutputTokens": 8192,
-                "temperature": 0.3
+                "temperature": 0.5
             }
         }
 
         response = requests.post(get_gemini_url(), headers={'Content-Type': 'application/json'}, json=payload)
         response_data = response.json()
-        print('GEMINI RESPONSE:', response_data)
         
         if 'candidates' not in response_data:
              return jsonify({"error": f"خطأ من جوجل: {str(response_data)}"}), 500
              
         ai_response_text = response_data['candidates'][0]['content']['parts'][0]['text']
-        print('RAW AI:', ai_response_text[:1000])
         clean_json = ai_response_text.replace("```json", "").replace("```", "").strip()
         
-        # تنظيف الفواصل الزائدة (Trailing Commas) تلقائياً لمنع خطأ Expecting property name enclosed in double quotes
+        # تنظيف الفواصل الزائدة تلقائياً لمنع أي خطأ JSON
         clean_json = re.sub(r',\s*([\]}])', r'\1', clean_json)
         
-        MAX_RETRIES = 3
-
-        for attempt in range(MAX_RETRIES):
-            try:
-                result_json = json.loads(clean_json)
-                break
-            except json.JSONDecodeError as e:
-                print('JSON ERROR:', e)
-                print(clean_json[:1000])
-        
-                if attempt == MAX_RETRIES - 1:
-                    return jsonify({
-                        "success": False,
-                        "error": "تعذر تحليل رد الذكاء الاصطناعي، حاول مرة أخرى."
-                    }), 500
-        
-                response = requests.post(
-                    get_gemini_url(),
-                    headers={'Content-Type': 'application/json'},
-                    json=payload
-                )
-        
-                response_data = response.json()
-        
-                if 'candidates' not in response_data:
-                    return jsonify({"error": str(response_data)}), 500
-        
-                ai_response_text = response_data['candidates'][0]['content']['parts'][0]['text']
-                clean_json = ai_response_text.replace("```json", "").replace("```", "").strip()
-                clean_json = re.sub(r',\s*([\]}])', r'\1', clean_json)
-        
+        result_json = json.loads(clean_json)
         qa_array = result_json.get("qa_list", [])
-        brief_explanation = result_json.get(
-            "brief_explanation",
-            "تم تحليل الدرس بنجاح."
-        )
-        
+        brief_explanation = result_json.get("brief_explanation", "تم تحليل الدرس بنجاح.")
+
         return jsonify({
-            "subjectTitle": subject_title,
-            "grade": grade_year,
+            "subjectTitle": subject_title, 
+            "grade": grade_year, 
             "qa_data": qa_array,
             "brief_explanation": brief_explanation
         }), 200
