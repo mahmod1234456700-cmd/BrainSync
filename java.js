@@ -724,7 +724,7 @@ async function renderActiveDashTab() {
     }
 }
 
-// جلب جدول إدارة الحسابات (مع زر الحذف ودعم ما لا نهاية)
+// جلب جدول إدارة الحسابات
 async function loadDashboardTableData() {
     const tableBody = document.getElementById('dash-table-body');
     if (!tableBody) return;
@@ -1621,11 +1621,17 @@ document.addEventListener('DOMContentLoaded', () => {
         resultHtml += '<p style="color: #059669; line-height: 1.8; font-weight: bold; font-size: 1.1rem;">تم تلخيص الصور واستخراج كافة الأسئلة بنجاح وفقاً لأعلى معايير التقييم العالمية.</p>';
         resultHtml += '<p style="color: #64748b; font-size: 0.95rem; margin-bottom: 20px;">الأسئلة جاهزة الآن للطباعة أو التحميل كملف PDF مع وجود العلامة المائية.</p>';
         
-        resultHtml += '<button id="real-download-btn" class="download-pdf-btn"><i class="fas fa-file-pdf"></i> تحميل التلخيص والأسئلة كملف PDF احترافي</button></div>';
+        resultHtml += '<button id="native-print-btn" class="download-pdf-btn" style="background:#2563eb; margin-bottom: 10px;"><i class="fas fa-print"></i> طباعة / حفظ كملف PDF احترافي (المحرك الرسمي - مضمون 100%)</button>';
+        resultHtml += '<button id="real-download-btn" class="download-pdf-btn" style="background:#10b981;"><i class="fas fa-file-pdf"></i> تحميل PDF مباشر (معالج الحروف المتصلة)</button></div>';
         
         document.getElementById('ai-response-text').innerHTML = resultHtml;
         globalLessonContext = JSON.stringify(serverData.qa_data);
         
+        document.getElementById('native-print-btn').addEventListener('click', () => {
+            preparePDFDOM(serverData, subjectName);
+            window.print();
+        });
+
         document.getElementById('real-download-btn').addEventListener('click', () => { 
             generateRealPDF(serverData, subjectName); 
         });
@@ -1633,10 +1639,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ai-output-container').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    function generateRealPDF(serverData, subjectName) {
-        const btn = document.getElementById('real-download-btn');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري بناء ملف الـ PDF...';
-        
+    function preparePDFDOM(serverData, subjectName) {
         const selectedFormat = document.getElementById('study-material-format')?.value || 'pdf-qa';
         const isExamMode = (selectedFormat === 'exam-focus');
 
@@ -1647,7 +1650,6 @@ document.addEventListener('DOMContentLoaded', () => {
             questionCount++;
             let cleanQuestion = stripParentheses(item.q);
             
-            // إلغاء كلمة "مقالي" نهائياً من الـ PDF
             let typeTitle = "";
             if (item.type === "MCQ") typeTitle = " [اختيار من متعدد]";
             else if (item.type === "TF") typeTitle = " [صح أو خطأ]";
@@ -1669,7 +1671,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!isExamMode) {
                 if (item.type === "TF") {
-                    // عرض الحكم بقوسين مباشرين [ ✓ ] أو [ ✕ ] مع ذكر السبب العلمي الوافي بدون جمل إنشائية
                     let isTrueAns = (item.a && (item.a.includes("صح") || item.a.includes("true") || item.a.includes("✓")));
                     let symbolMark = isTrueAns ? "[ ✓ ]" : "[ ✕ ]";
                     let colorMark = isTrueAns ? "#059669" : "#b45309";
@@ -1699,6 +1700,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (footerElement) {
             footerElement.innerHTML = 'تاريخ الإنشاء: ' + pdfCreationDate + ' | عدد الأسئلة المستخرجة: ' + questionCount + '<br>تم التوليد بواسطة منصة BrainSync للذكاء الاصطناعي © 2026';
         }
+    }
+
+    function generateRealPDF(serverData, subjectName) {
+        const btn = document.getElementById('real-download-btn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري بناء ملف الـ PDF...';
+        
+        preparePDFDOM(serverData, subjectName);
 
         const elementToPrint = document.getElementById('pdf-template');
         const originalScrollY = window.scrollY || document.documentElement.scrollTop;
@@ -1716,7 +1724,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 logging: false, 
                 useCORS: true,
                 scrollY: 0,
-                windowY: 0
+                windowY: 0,
+                letterSpacing: 0,
+                onclone: (clonedDoc) => {
+                    const templateEl = clonedDoc.getElementById('pdf-template');
+                    if (templateEl) {
+                        templateEl.style.fontFamily = "'Tahoma', 'Arial', 'Cairo', sans-serif";
+                        templateEl.style.letterSpacing = "normal";
+                        templateEl.style.direction = "rtl";
+                    }
+                }
             },
             jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
         };
@@ -1726,10 +1743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 elementToPrint.style.display = 'none';
                 window.scrollTo(0, originalScrollY); 
                 
-                btn.innerHTML = '<i class="fas fa-check"></i> تم التحميل بنجاح';
-                setTimeout(() => { 
-                    btn.innerHTML = '<i class="fas fa-file-pdf"></i> تحميل التلخيص والأسئلة كملف PDF احترافي'; 
-                }, 3000);
+                btn.innerHTML = '<i class="fas fa-file-pdf"></i> تحميل PDF مباشر (معالج الحروف المتصلة)';
             }).catch(() => {
                 elementToPrint.style.display = 'none';
                 window.scrollTo(0, originalScrollY);
