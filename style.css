@@ -471,7 +471,7 @@ select:focus, input:focus {
     unicode-bidi: normal !important;
 }
 
-/* العلامة المائية فوق الكلام (z-index: 9999) بشفافية هادئة لا تحجب الرؤية */
+/* العلامة المائية في العرض العادي */
 #pdf-template::after {
     content: "BrainSync";
     position: absolute;
@@ -511,5 +511,21 @@ select:focus, input:focus {
     .pdf-question-block {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+    }
+    /* إجبار تكرار العلامة المائية فوق الكلام على جميع صفحات الطباعة والـ PDF بلا استثناء */
+    #pdf-template::after {
+        content: "BrainSync" !important;
+        position: fixed !important;
+        top: 45% !important;
+        left: 15% !important;
+        font-size: 7rem !important;
+        font-weight: 900 !important;
+        color: #0f172a !important;
+        opacity: 0.10 !important;
+        transform: rotate(-35deg) !important;
+        pointer-events: none !important;
+        z-index: 9999 !important;
+        white-space: nowrap !important;
+        display: block !important;
     }
 }
