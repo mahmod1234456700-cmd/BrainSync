@@ -84,45 +84,45 @@ def analyze():
         
         MAX_RETRIES = 3
 
-for attempt in range(MAX_RETRIES):
-    try:
-        result_json = json.loads(clean_json)
-        break
-    except json.JSONDecodeError:
-
-        if attempt == MAX_RETRIES - 1:
-            return jsonify({
-                "success": False,
-                "error": "تعذر تحليل رد الذكاء الاصطناعي، حاول مرة أخرى."
-            }), 500
-
-        response = requests.post(
-            get_gemini_url(),
-            headers={'Content-Type': 'application/json'},
-            json=payload
+        for attempt in range(MAX_RETRIES):
+            try:
+                result_json = json.loads(clean_json)
+                break
+            except json.JSONDecodeError:
+        
+                if attempt == MAX_RETRIES - 1:
+                    return jsonify({
+                        "success": False,
+                        "error": "تعذر تحليل رد الذكاء الاصطناعي، حاول مرة أخرى."
+                    }), 500
+        
+                response = requests.post(
+                    get_gemini_url(),
+                    headers={'Content-Type': 'application/json'},
+                    json=payload
+                )
+        
+                response_data = response.json()
+        
+                if 'candidates' not in response_data:
+                    return jsonify({"error": str(response_data)}), 500
+        
+                ai_response_text = response_data['candidates'][0]['content']['parts'][0]['text']
+                clean_json = ai_response_text.replace("```json", "").replace("```", "").strip()
+                clean_json = re.sub(r',\s*([\]}])', r'\1', clean_json)
+        
+        qa_array = result_json.get("qa_list", [])
+        brief_explanation = result_json.get(
+            "brief_explanation",
+            "تم تحليل الدرس بنجاح."
         )
-
-        response_data = response.json()
-
-        if 'candidates' not in response_data:
-            return jsonify({"error": str(response_data)}), 500
-
-        ai_response_text = response_data['candidates'][0]['content']['parts'][0]['text']
-        clean_json = ai_response_text.replace("```json", "").replace("```", "").strip()
-        clean_json = re.sub(r',\s*([\]}])', r'\1', clean_json)
-
-qa_array = result_json.get("qa_list", [])
-brief_explanation = result_json.get(
-    "brief_explanation",
-    "تم تحليل الدرس بنجاح."
-)
-
-return jsonify({
-    "subjectTitle": subject_title,
-    "grade": grade_year,
-    "qa_data": qa_array,
-    "brief_explanation": brief_explanation
-}), 200
+        
+        return jsonify({
+            "subjectTitle": subject_title,
+            "grade": grade_year,
+            "qa_data": qa_array,
+            "brief_explanation": brief_explanation
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
