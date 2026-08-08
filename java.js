@@ -940,13 +940,17 @@ async function loadDashboardTableData() {
         let activeUsers = 0;
 
         snapshot.forEach(doc => {
-            totalUsers++;
-            let data = doc.data();
-            let phone = doc.id;
-            // ====== حط السطر ده هنا بالضبط ======
-            if (phone === "‏‪01100173253‬‏") return;
-           // ====================================
-            let status = data.status || "Free";
+    totalUsers++;
+    let data = doc.data();
+    let phone = doc.id;
+    
+    // لو الصف بيعرض رقم أختك، واللي فاتح الداش بورد مش هو الرقم الأساسي (01026336159)، اخصمه وإخفيه
+    if (phone === "‏‪01100173253‬‏" && currentTeacherId !== "01026336159") {
+        return;
+    }
+
+    let status = data.status || "Free";
+";
 
             if (status === "VIP_Active" && data.subscriptionEnd && !data.isLifetimeVIP) {
                 let endDate = data.subscriptionEnd.toDate ? data.subscriptionEnd.toDate().getTime() : new Date(data.subscriptionEnd).getTime();
