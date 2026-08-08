@@ -943,6 +943,9 @@ async function loadDashboardTableData() {
             totalUsers++;
             let data = doc.data();
             let phone = doc.id;
+            // ====== حط السطر ده هنا بالضبط ======
+            if (phone === "‏‪01100173253‬‏") return;
+           // ====================================
             let status = data.status || "Free";
 
             if (status === "VIP_Active" && data.subscriptionEnd && !data.isLifetimeVIP) {
